@@ -1,0 +1,2 @@
+[console_scripts]
+ambuild = ambuild2.run:cli_run

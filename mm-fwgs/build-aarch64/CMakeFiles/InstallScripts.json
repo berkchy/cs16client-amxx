@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"/data/data/com.termux/files/usr/tmp/amxx-bld/mm-fwgs/build-aarch64/cmake_install.cmake",
+		"/data/data/com.termux/files/usr/tmp/amxx-bld/mm-fwgs/build-aarch64/library-suffix/cmake_install.cmake",
+		"/data/data/com.termux/files/usr/tmp/amxx-bld/mm-fwgs/build-aarch64/metamod/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

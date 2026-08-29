@@ -1,0 +1,33 @@
+# vim: sts=2 ts=8 sw=2 tw=99 et ft=python: 
+import os, platform
+
+lib = builder.compiler.StaticLibrary('zlib')
+
+if builder.target_platform == 'linux' or builder.target_platform == 'mac':
+  lib.compiler.defines += [
+    'HAVE_UNISTD_H'
+  ]
+
+lib.compiler.includes += [
+  os.path.join(builder.sourcePath, 'third_party', 'zlib'),
+]
+
+lib.sources += [
+  'adler32.c',
+  'compress.c',
+  'crc32.c',
+  'deflate.c',
+  'gzclose.c',
+  'gzlib.c',
+  'gzread.c',
+  'gzwrite.c',
+  'infback.c',
+  'inffast.c',
+  'inflate.c',
+  'inftrees.c',
+  'trees.c',
+  'uncompr.c',
+  'zutil.c',
+]
+
+rvalue = builder.Add(lib)

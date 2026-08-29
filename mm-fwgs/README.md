@@ -1,0 +1,39 @@
+# Metamod-FWGS
+
+Fork of Metamod, intended for use with Xash3D FWGS engine on many different architectures & platforms. Original [Metamod-R](https://github.com/rehlds/metamod-r) contains a lot of x86 JIT optimizations, memory patching hacks, constrained by binary compatibility with ReHLDS and legacy game libraries, and not flexible enough to be compatible with wide variety of compilers/toolchains and architectures.
+
+## Documentation
+
+Documentation is mostly similar with Metamod-R, so at this point we do not have any specific documentation for this project.
+
+* ![en](https://i.imgur.com/rm67tUZ.png) [English documentation](https://rehlds.dev/docs/metamod-r/)
+* ![ru](https://i.imgur.com/ItziiKg.png) [Русская документация](https://rehlds.dev/ru/docs/metamod-r/)
+
+## Build instructions
+### Windows
+
+#### Prerequisites
+Visual Studio 2015 (C++14 standard) and later. You can use Visual Studio 2019 or Visual Studio 2022 for best experience.
+
+#### Instructions
+* Open cloned repository directory as CMake folder with Visual Studio (you can use VS2019 or VS2022).
+* Select desired build preset, for example you can use `Windows / x86 / Debug`. You can see other available presets in CMakePresets.json file.
+* In Build menu select Build solution, or you can use hotkey `Ctrl+Shift+B` instead.
+
+### Linux
+
+#### Prerequisites
+`git`, `cmake`, `ninja-build`, `gcc` or `clang` (with C++17 support)
+
+#### Instructions
+
+```
+cmake -E make_directory ./build
+cd build
+cmake .. --preset linux-x86-debug
+cmake --build .
+```
+
+## Plugins development
+
+Check repository with implementation of [example Metamod plugin](https://github.com/FWGS/metamod-plugin-template) made in cross-platform way.

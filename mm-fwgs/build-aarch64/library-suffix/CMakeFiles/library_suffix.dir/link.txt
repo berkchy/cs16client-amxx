@@ -1,0 +1,2 @@
+/data/data/com.termux/files/usr/bin/llvm-ar qc liblibrary_suffix.a CMakeFiles/library_suffix.dir/src/library_suffix.c.o
+/data/data/com.termux/files/usr/bin/llvm-ranlib liblibrary_suffix.a

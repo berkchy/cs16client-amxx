@@ -1,0 +1,161 @@
+cmake_minimum_required(VERSION 3.19)
+project(metamod CXX)
+
+set(PROJECT_HEADERS_DIR
+	"${PROJECT_SOURCE_DIR}"
+	"${PROJECT_SOURCE_DIR}/src"
+	"${PROJECT_SOURCE_DIR}/include/engine"
+	"${PROJECT_SOURCE_DIR}/include/common"
+	"${PROJECT_SOURCE_DIR}/include/dlls"
+	"${PROJECT_SOURCE_DIR}/include/game_shared"
+	"${PROJECT_SOURCE_DIR}/include/pm_shared"
+	"${PROJECT_SOURCE_DIR}/include/public"
+	"${CMAKE_SOURCE_DIR}/public"
+	"${CMAKE_CURRENT_BINARY_DIR}"
+)
+
+configure_file("./version/appversion.h.in" "${CMAKE_CURRENT_BINARY_DIR}/version/appversion.h")
+
+set(METAMOD_SOURCES
+	"src/api_info.cpp"
+	"src/commands_meta.cpp"
+	"src/conf_meta.cpp"
+	"src/dllapi.cpp"
+	"src/engine_api.cpp"
+	"src/game_support.cpp"
+	"src/h_export.cpp"
+	"src/log_meta.cpp"
+	"src/mdebug.cpp"
+	"src/meta_rehlds_api.cpp"
+	"src/metamod.cpp"
+	"src/mextdll.cpp"
+	"src/mlist.cpp"
+	"src/mplayer.cpp"
+	"src/mplugin.cpp"
+	"src/mreg.cpp"
+	"src/mutil.cpp"
+	"src/precompiled.cpp"
+	"src/public_amalgamation.cpp"
+	"src/physint_dllapi.cpp"
+	"src/reg_support.cpp"
+	"src/sdk_util.cpp"
+	"src/studioapi.cpp"
+	"src/sys_module.cpp"
+	"src/utils.cpp"
+
+	"${CMAKE_CURRENT_BINARY_DIR}/version/appversion.h"
+)
+
+# required for ABI compatibility
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+	list(APPEND METAMOD_SOURCES "msvc/metamod.rc")
+	list(APPEND METAMOD_SOURCES "msvc/metamod.def")
+endif()
+
+add_library(metamod SHARED ${METAMOD_SOURCES})
+set_target_properties(metamod PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(metamod PRIVATE
+	${PROJECT_HEADERS_DIR}
+)
+
+set(METAMOD_COMPILE_OPTIONS "")
+set(METAMOD_LINK_OPTIONS "")
+
+if (MSVC)
+    list(APPEND METAMOD_COMPILE_OPTIONS /W3 /EHsc)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+else()
+    list(APPEND METAMOD_COMPILE_OPTIONS
+		-Wall
+		-Wextra
+		-Wno-unused-parameter
+		-fno-exceptions
+		-fno-builtin
+		-Wno-unknown-pragmas
+		-Wno-stringop-truncation
+		-Wno-format-truncation
+		-Wno-class-memaccess
+		-fcf-protection=none
+		-Wno-maybe-uninitialized
+		-Wno-unused-but-set-variable)
+
+    # debug mode flags
+    list(APPEND METAMOD_COMPILE_OPTIONS
+		$<$<CONFIG:Debug>:-g3>
+		$<$<CONFIG:Debug>:-O0> 
+		$<$<CONFIG:Debug>:-ggdb>)
+
+	# release mode flags
+    list(APPEND METAMOD_COMPILE_OPTIONS
+		$<$<NOT:$<CONFIG:Debug>>:-g> 
+		$<$<NOT:$<CONFIG:Debug>>:-O3>  
+		$<$<NOT:$<CONFIG:Debug>>:-fno-stack-protector>)
+
+    list(APPEND METAMOD_LINK_OPTIONS $<$<CONFIG:Release>:-s>) # strip debug symbols, but only in strict release mode
+endif()
+
+# MSVC: add configuration-specific flags using generator expressions to avoid conflicts such as /RTC1 vs /O2
+if (MSVC)
+    # Use /RTC1 only for Debug configuration; avoid it for Release where /O2 is used
+    target_compile_options(metamod PRIVATE
+        $<$<CONFIG:Debug>:/Zi;/Od;/RTC1>
+        $<$<NOT:$<CONFIG:Debug>>:/O2>
+    )
+endif()
+
+target_compile_options(metamod PRIVATE ${METAMOD_COMPILE_OPTIONS})
+target_link_options(metamod PRIVATE ${METAMOD_LINK_OPTIONS})
+target_link_libraries(metamod PRIVATE library_suffix)
+
+if (UNIX)
+    target_link_libraries(metamod PRIVATE dl pthread)
+elseif (WIN32)
+    target_link_libraries(metamod PRIVATE psapi)
+endif()
+
+if (USE_STATIC_RUNTIME)
+    target_compile_definitions(metamod PRIVATE BUILD_STATIC_LIBSTDC)
+	if(MSVC)
+		set_target_properties(metamod PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    else()
+        target_link_options(metamod PRIVATE -static-libgcc -static-libstdc++)
+    endif()
+endif()
+
+target_compile_definitions(metamod PRIVATE
+    METAMOD_CORE
+	$<$<NOT:$<CONFIG:Debug>>:NDEBUG>
+)
+
+if (WIN32)
+    target_compile_definitions(metamod PRIVATE _WINDOWS)
+else()
+    # map Windows string functions to POSIX equivalents
+    target_compile_definitions(metamod PRIVATE
+        _LINUX
+        LINUX
+        _stricmp=strcasecmp
+        _strnicmp=strncasecmp
+        _strdup=strdup
+        _unlink=unlink
+        _write=write
+        _close=close
+        _getcwd=getcwd
+        _vsnprintf=vsnprintf
+        _vsnwprintf=vswprintf
+        _snprintf=snprintf
+    )
+endif()
+
+# required for compliance with Xash3D FWGS library naming scheme
+set_target_postfix(metamod)
+
+# copy compiled metamod binaries & extra files to install directory
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/extra/" DESTINATION ".")
+install(TARGETS metamod
+        RUNTIME DESTINATION "."
+		LIBRARY DESTINATION "."
+		ARCHIVE DESTINATION "."
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+        GROUP_READ GROUP_EXECUTE
+        WORLD_READ WORLD_EXECUTE)
