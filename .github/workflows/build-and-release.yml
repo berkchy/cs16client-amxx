@@ -24,6 +24,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Checkout addons from amxx-addons branch
+        shell: bash
+        run: |
+          git fetch origin amxx-addons
+          git checkout origin/amxx-addons -- addons/
+
       - name: Copy vendored sources into AMXX tree
         shell: bash
         run: |
