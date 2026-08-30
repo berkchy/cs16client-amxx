@@ -103,7 +103,7 @@ SYSROOT_LIB=$NDK/toolchains/llvm/prebuilt/$HOST-x86_64/sysroot/usr/lib/aarch64-l
 AMXX=$SRC/amxmodx
 HLSDK=$REPO_ROOT/android/hlsdk
 METAMOD=$SRC/metamod-p/metamod
-MMHLSDK=$SRC/metamod-p/hlsdk
+MMHLSDK=$HLSDK
 
 # ---------------------------------------------------------------- flags
 DEFS=(
@@ -216,8 +216,9 @@ PCRE_A="$TMP/pcre-inst/lib/libpcre.a"
 echo "== building metamod (metamod-p, aarch64) =="
 MM_INC=(
   -I"$METAMOD"
-  -I"$MMHLSDK/engine" -I"$MMHLSDK/common" -I"$MMHLSDK/pm_shared" -I"$MMHLSDK/dlls" -I"$MMHLSDK"
-  -I"$HLSDK" -I"$HLSDK/dlls"
+  -I"$MMHLSDK/common" -I"$MMHLSDK/dlls" -I"$MMHLSDK/engine"
+  -I"$MMHLSDK/game_shared" -I"$MMHLSDK/public" -I"$MMHLSDK/pm_shared"
+  -I"$MMHLSDK"
 )
 MM_DEFS=(
   -D__METAMOD_BUILD__
