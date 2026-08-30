@@ -72,6 +72,7 @@ apply_patch "$PATCHES/amxmodx-android-load-modules.patch" "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-CDetour-cell.diff"          "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-64bit-cell-casts.diff"       "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-memtools-dlfcn.diff"         "$SRC/amxmodx"
+apply_patch "$PATCHES/amxmodx-CTextParsers-quote-underrun.diff" "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-amtl-64bit.diff"             "$SRC/amxmodx" "public/amtl"
 apply_patch "$PATCHES/metamod-p-aarch64.patch"            "$SRC/metamod-p"
 
