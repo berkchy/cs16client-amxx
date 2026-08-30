@@ -86,7 +86,7 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                 _source.value = SourceInfo(name, out.length(), info.entryCount)
                 _receivedSource.value = out
             } catch (t: Throwable) {
-                _patch.value = PatchUiState.Failed("Kaynak APK kopyalanamadı: ${t.message}")
+                _patch.value = PatchUiState.Failed("Could not copy source APK: ${t.message}")
             }
         }
     }
@@ -99,13 +99,13 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
 
     fun useEmbeddedBundle() {
         val b = bundleProvider.loadEmbedded()
-        if (b != null) applyBundle("Gömülü (offline)", b)
-        else _bundle.value = BundleState.DownloadError("Cihazda hazır bundle yok — çevrimiçi indirin.")
+        if (b != null) applyBundle("Embedded (offline)", b)
+        else _bundle.value = BundleState.DownloadError("No bundle is available on this device — download it online.")
     }
 
     fun useCachedBundle() {
         val b = bundleProvider.loadCachedBundle()
-        if (b != null) applyBundle("İndirilen ($CACHE_TAG)", b)
+        if (b != null) applyBundle("Downloaded ($CACHE_TAG)", b)
     }
 
     fun fetchAndDownloadBundle() {
@@ -114,14 +114,14 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val rel = ReleaseRepository.latest(repo)
                 val asset = rel.bundleAsset()
-                    ?: throw IOException("Sürümde bundle bulunamadı")
+                    ?: throw IOException("No bundle found in the latest release")
                 _bundle.update {
                     BundleState.Downloading(0.1f)
                 }
                 val dest = bundleProvider.cachedBundleFile()
                 ReleaseRepository.download(asset, dest)
                 val b = Bundle.fromZip(dest.readBytes())
-                    ?: throw IOException("Bundle dosyası bozuk")
+                    ?: throw IOException("Bundle file is corrupted")
                 _releaseNote.value = rel.name.ifBlank { rel.tag_name }
                 applyBundle(asset.name, b)
             } catch (t: Throwable) {
@@ -141,7 +141,7 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
         val keystoreBytes = runCatching {
             getApplication<Application>().assets.open("keystore/debug.p12").use { it.readBytes() }
         }.getOrElse {
-            _patch.value = PatchUiState.Failed("İmza anahtarı (debug.p12) eksik")
+            _patch.value = PatchUiState.Failed("Signing key (debug.p12) is missing")
             return
         }
         val keystore = SigningKeystore.loadBytes(keystoreBytes)

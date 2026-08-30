@@ -48,17 +48,17 @@ fun PatchScreen(vm: PatcherViewModel) {
             .verticalScroll(screenScroll)
             .padding(20.dp),
     ) {
-        Text("Yama Sihirbazı", style = MaterialTheme.typography.headlineMedium)
+        Text("Patch Wizard", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "1) APK seç → 2) Bundle yükle → 3) Yamala. Bittiğinde kur!",
+            "1) Pick an APK → 2) Load a bundle → 3) Patch & sign. Then install!",
             style = MaterialTheme.typography.bodyLarge,
             color = OnDarkMuted,
         )
 
         Spacer(Modifier.height(18.dp))
 
-        SectionTitle("1 · Kaynak APK")
+        SectionTitle("1 · Source APK")
         Spacer(Modifier.height(10.dp))
         SourceApkCard(vm)
 
@@ -70,7 +70,7 @@ fun PatchScreen(vm: PatcherViewModel) {
 
         Spacer(Modifier.height(18.dp))
 
-        SectionTitle("3 · Yamala")
+        SectionTitle("3 · Patch")
         Spacer(Modifier.height(10.dp))
         PatchRunCard(vm)
     }
@@ -97,7 +97,7 @@ private fun SourceApkCard(vm: PatcherViewModel) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             if (source == null) {
                 Text(
-                    "Henüz APK seçilmedi — stok CS16Client kurulum APK'sını seç.",
+                    "No APK selected — choose the stock CS16Client installer APK.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = OnDarkMuted,
                 )
@@ -108,7 +108,7 @@ private fun SourceApkCard(vm: PatcherViewModel) {
                 ) {
                     Icon(Icons.Filled.FolderOpen, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("APK Dosyası Seç")
+                    Text("Select APK")
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -137,7 +137,7 @@ private fun SourceApkCard(vm: PatcherViewModel) {
                         )
                     }
                     TextButton(onClick = { picker.launch(arrayOf("application/vnd.android.package-archive")) }) {
-                        Text("Değiştir")
+                        Text("Change")
                     }
                 }
             }
@@ -157,7 +157,7 @@ private fun BundleCard(vm: PatcherViewModel) {
             when (val bs = bundleState) {
                 is BundleState.None -> {
                     Text(
-                        "Mod bundle gerekli. İndir veya cihaza gömülü sürümü kullan.",
+                        "A mod bundle is required. Download one or use the embedded build.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = OnDarkMuted,
                     )
@@ -169,19 +169,19 @@ private fun BundleCard(vm: PatcherViewModel) {
                         ) {
                             Icon(Icons.Filled.Download, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("GitHub'dan İndir")
+                            Text("Download from GitHub")
                         }
                         OutlinedButton(
                             onClick = { vm.useEmbeddedBundle() },
                             shape = RoundedCornerShape(14.dp),
                         ) {
-                            Text("Gömülü Kullan")
+                            Text("Use Embedded")
                         }
                     }
                 }
                 is BundleState.Downloading -> {
                     Column {
-                        Text("Bundle indiriliyor…", style = MaterialTheme.typography.titleMedium)
+                        Text("Downloading bundle…", style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(8.dp))
                         AnimatedProgressBar(bs.percent)
                     }
@@ -197,12 +197,12 @@ private fun BundleCard(vm: PatcherViewModel) {
                         Button(
                             onClick = { vm.fetchAndDownloadBundle() },
                             shape = RoundedCornerShape(14.dp),
-                        ) { Text("Tekrar Dene") }
+                        ) { Text("Retry") }
                         Spacer(Modifier.width(10.dp))
                         OutlinedButton(
                             onClick = { vm.useEmbeddedBundle() },
                             shape = RoundedCornerShape(14.dp),
-                        ) { Text("Gömülü") }
+                        ) { Text("Embedded") }
                     }
                 }
                 is BundleState.Ready -> {
@@ -222,7 +222,7 @@ private fun BundleCard(vm: PatcherViewModel) {
                         Column(Modifier.weight(1f)) {
                             Text(bs.bundleName, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "${bs.entries} giriş · versiyon ${bs.version}",
+                                "${bs.entries} entries · version ${bs.version}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = OnDarkMuted,
                             )
@@ -256,12 +256,12 @@ private fun PatchRunCard(vm: PatcherViewModel) {
                     ) {
                         Icon(Icons.Filled.RocketLaunch, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("APK'yı Yamala ve İmzala", style = MaterialTheme.typography.titleMedium)
+                        Text("Patch & Sign APK", style = MaterialTheme.typography.titleMedium)
                     }
                     if (!canPatch) {
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "Devam etmek için önce APK seç ve bundle yükle.",
+                            "Select an APK and load a bundle to continue.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                         )
@@ -283,7 +283,7 @@ private fun PatchRunCard(vm: PatcherViewModel) {
                         tint = MaterialTheme.colorScheme.error,
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text("Yama başarısız", style = MaterialTheme.typography.titleLarge)
+                    Text("Patch failed", style = MaterialTheme.typography.titleLarge)
                     Spacer(Modifier.height(6.dp))
                     Text(
                         s.message,
@@ -294,7 +294,7 @@ private fun PatchRunCard(vm: PatcherViewModel) {
                     Button(
                         onClick = { vm.reset() },
                         shape = RoundedCornerShape(14.dp),
-                    ) { Text("Yeniden Dene") }
+                    ) { Text("Try Again") }
                 }
             }
         }
@@ -304,11 +304,11 @@ private fun PatchRunCard(vm: PatcherViewModel) {
 @Composable
 private fun PatchSteps(step: ApkPatcher.Step, progress: Float) {
     val steps = listOf(
-        ApkPatcher.Step.ANALYZE to "Çözümleme",
-        ApkPatcher.Step.INJECT to "Enjeksiyon",
-        ApkPatcher.Step.ALIGN to "Hizalama",
-        ApkPatcher.Step.SIGN to "İmzalama",
-        ApkPatcher.Step.VERIFY to "Doğrulama",
+        ApkPatcher.Step.ANALYZE to "Analyze",
+        ApkPatcher.Step.INJECT to "Inject",
+        ApkPatcher.Step.ALIGN to "Align",
+        ApkPatcher.Step.SIGN to "Sign",
+        ApkPatcher.Step.VERIFY to "Verify",
     )
     val currentIndex = steps.indexOfFirst { it.first == step }
 
@@ -322,7 +322,7 @@ private fun PatchSteps(step: ApkPatcher.Step, progress: Float) {
             }
             StepListItem(
                 title = label,
-                detail = if (st == StepState.ACTIVE) "İşleniyor… (%${(progress * 100).toInt()})" else "",
+                detail = if (st == StepState.ACTIVE) "Working… (${(progress * 100).toInt()}%)" else "",
                 state = st,
             )
             if (i != steps.lastIndex) Spacer(Modifier.height(8.dp))
@@ -346,17 +346,17 @@ private fun PatchResult(report: ApkPatcher.PatchReport, onInstall: () -> Unit) {
             ) {
                 Column(Modifier.fillMaxWidth().padding(14.dp)) {
                     Text(
-                        "Yama Tamamlandı",
+                        "Patch Complete",
                         style = MaterialTheme.typography.titleLarge,
                         color = Mint80,
                     )
                     Spacer(Modifier.height(4.dp))
                     val v = report.verification
                     Text(
-                        "Çıktı: ${report.signedSizeBytes.mb()} · kaynak ${report.sourceName}\n" +
-                                "Eklenen giriş: ${report.addedEntries.size} · korunan: ${report.keptCount} · hizalı: ${report.alignedStored}\n" +
-                                "resources.arsc: ${if (report.arscStored) "stored" else "sıkışmış"} / ${if (report.arscAligned) "hizalı" else "HİZASIZ"}\n" +
-                                "İmza: ${if (v != null && v.verified) "doğrulandı (v1=${v.usedV1} v2=${v.usedV2})" else "DOĞRULANAMADI"}",
+                        "Output: ${report.signedSizeBytes.mb()} · source ${report.sourceName}\n" +
+                                "Added entries: ${report.addedEntries.size} · kept: ${report.keptCount} · aligned: ${report.alignedStored}\n" +
+                                "resources.arsc: ${if (report.arscStored) "stored" else "compressed"} / ${if (report.arscAligned) "aligned" else "NOT ALIGNED"}\n" +
+                                "Signature: ${if (v != null && v.verified) "verified (v1=${v.usedV1} v2=${v.usedV2})" else "NOT VERIFIED"}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = OnDark,
                     )
@@ -370,11 +370,11 @@ private fun PatchResult(report: ApkPatcher.PatchReport, onInstall: () -> Unit) {
             ) {
                 Icon(Icons.Filled.InstallDesktop, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Kur (sistem yükleyici)")
+                Text("Install (system installer)")
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "Bu, mevcut AMXX yüklemesinin üzerine kurulur — imza aynı debug anahtarıyla yapılır.",
+                "This replaces the existing AMXX install — the APK is signed with the same debug key.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = OnDarkMuted,
             )

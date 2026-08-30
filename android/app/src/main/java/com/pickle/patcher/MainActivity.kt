@@ -58,9 +58,9 @@ private enum class Dest(
     val selectedIcon: ImageVector,
     val icon: ImageVector,
 ) {
-    Home("home", "Ana Sayfa", Icons.Filled.Home, Icons.Outlined.Home),
-    Patch("patch", "Yama", Icons.Filled.RocketLaunch, Icons.Outlined.Architecture),
-    Releases("releases", "İndirilenler", Icons.Filled.Build, Icons.Outlined.Build),
+    Home("home", "Home", Icons.Filled.Home, Icons.Outlined.Home),
+    Patch("patch", "Patch", Icons.Filled.RocketLaunch, Icons.Outlined.Architecture),
+    Releases("releases", "Downloads", Icons.Filled.Build, Icons.Outlined.Build),
 }
 
 @Composable

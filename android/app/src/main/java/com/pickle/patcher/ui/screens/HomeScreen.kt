@@ -62,7 +62,7 @@ fun HomeScreen(vm: PatcherViewModel, onGoToPatch: () -> Unit) {
         Spacer(Modifier.height(20.dp))
 
         Text(
-            "AMX Mod X, bu cihazda derlenmez — her şey GitHub üzerinde derlenir. Sen sadece APK'yı seç, yamala, kur.",
+            "AMX Mod X is built on GitHub, not on this device. Pick an APK, patch it, install it.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
@@ -72,24 +72,24 @@ fun HomeScreen(vm: PatcherViewModel, onGoToPatch: () -> Unit) {
 
         Spacer(Modifier.height(26.dp))
 
-        SectionTitle("Nasıl çalışır")
+        SectionTitle("How it works")
         Spacer(Modifier.height(10.dp))
 
         StepListItem(
-            "Bundle'ı indir",
-            "GitHub Actions, core + 11 modül + pluginleri derler ve tek pakette toplar.",
+            "Download the bundle",
+            "GitHub Actions compiles the core, modules, and plugins into one package.",
             StepState.DONE,
         )
         Spacer(Modifier.height(10.dp))
         StepListItem(
-            "Orijinal APK'yı seç",
-            "Cihazdaki CS16Client kurulum APK'sını seç — örneğin CS16Client-AMXX13-unsigned.apk.",
+            "Select the original APK",
+            "Pick the stock CS16Client installer on this device, e.g. CS16Client-AMXX13-unsigned.apk.",
             StepState.ACTIVE,
         )
         Spacer(Modifier.height(10.dp))
         StepListItem(
-            "Yamala & imzala & kur",
-            "Çekirdek ve modüller APK'nın içine eklenir, dosyalar hizalanır, imzalanır.",
+            "Patch, sign & install",
+            "The core and modules are injected, files aligned, and the APK re-signed.",
             StepState.PENDING,
         )
 
@@ -101,19 +101,19 @@ fun HomeScreen(vm: PatcherViewModel, onGoToPatch: () -> Unit) {
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 StatChip(
-                    "Derleme",
+                    "Build",
                     value = "GitHub",
                     accent = Mint80,
                     modifier = Modifier.weight(1f),
                 )
                 StatChip(
-                    "Modül",
+                    "Modules",
                     value = "11",
                     accent = Violet80,
                     modifier = Modifier.weight(1f),
                 )
                 StatChip(
-                    "İmza",
+                    "Signing",
                     value = "debug",
                     accent = Mint80,
                     modifier = Modifier.weight(1f),
@@ -132,7 +132,7 @@ fun HomeScreen(vm: PatcherViewModel, onGoToPatch: () -> Unit) {
         ) {
             Icon(Icons.Filled.RocketLaunch, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text("Yamalama Ekranı", style = MaterialTheme.typography.titleMedium)
+            Text("Go to Patch", style = MaterialTheme.typography.titleMedium)
         }
 
         Spacer(Modifier.height(20.dp))

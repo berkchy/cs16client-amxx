@@ -33,17 +33,17 @@ fun ReleasesScreen(vm: PatcherViewModel) {
             .verticalScroll(scroll)
             .padding(20.dp),
     ) {
-        Text("Bundle Yönetimi", style = MaterialTheme.typography.headlineMedium)
+        Text("Bundle Manager", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "GitHub Actions her sürümü derler: çekirdek, 11 modül ve pluginler. Tek bundle'a paketler.",
+            "Each release is built by GitHub Actions: core, modules, and plugins, packaged into a single bundle.",
             style = MaterialTheme.typography.bodyLarge,
             color = OnDarkMuted,
         )
 
         Spacer(Modifier.height(18.dp))
 
-        SectionTitle("En son sürüm")
+        SectionTitle("Latest release")
         Spacer(Modifier.height(10.dp))
         ElevatedCard(shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(18.dp)) {
@@ -57,7 +57,7 @@ fun ReleasesScreen(vm: PatcherViewModel) {
                 }
                 when (val b = bundle) {
                     is BundleState.Downloading -> Text(
-                        "İndiriliyor…",
+                        "Downloading…",
                         style = MaterialTheme.typography.bodyMedium,
                         color = OnDarkMuted,
                     )
@@ -67,12 +67,12 @@ fun ReleasesScreen(vm: PatcherViewModel) {
                         color = MaterialTheme.colorScheme.error,
                     )
                     is BundleState.Ready -> Text(
-                        "Hazır: ${b.bundleName} · versiyon ${b.version}",
+                        "Ready: ${b.bundleName} · version ${b.version}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Mint80,
                     )
                     is BundleState.None -> Text(
-                        "Henüz indirilmedi.",
+                        "Not downloaded yet.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = OnDarkMuted,
                     )
@@ -86,12 +86,12 @@ fun ReleasesScreen(vm: PatcherViewModel) {
                     ) {
                         Icon(Icons.Filled.Refresh, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
-                        Text("İndir / Güncelle")
+                        Text("Download / Update")
                     }
                     OutlinedButton(
                         onClick = { vm.useEmbeddedBundle() },
                         shape = RoundedCornerShape(14.dp),
-                    ) { Text("Gömülü") }
+                    ) { Text("Embedded") }
                 }
                 if (vm.hasCachedBundle) {
                     Spacer(Modifier.height(8.dp))
@@ -99,11 +99,11 @@ fun ReleasesScreen(vm: PatcherViewModel) {
                         onClick = { vm.useCachedBundle() },
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Önbellekteki bundle'ı yükle") }
+                    ) { Text("Load cached bundle") }
                 } else {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Önbellekte bundle yok — ilk indirme sırasında oluşur.",
+                        "No cached bundle — one is created on first download.",
                         style = MaterialTheme.typography.labelMedium,
                         color = OnDarkMuted,
                     )
@@ -113,7 +113,7 @@ fun ReleasesScreen(vm: PatcherViewModel) {
 
         Spacer(Modifier.height(22.dp))
 
-        SectionTitle("Oyun kutusu")
+        SectionTitle("Game folders")
         Spacer(Modifier.height(10.dp))
         GameFolderCard()
     }
@@ -123,14 +123,14 @@ fun ReleasesScreen(vm: PatcherViewModel) {
 private fun GameFolderCard() {
     val context = LocalContext.current
     val gamePaths = listOf(
-        "Çekirdek dosyalar" to listOf(
+        "Core files" to listOf(
             File("/storage/emulated/0/xash/cstrike/addons/amxmodx/bin/"),
             File("/storage/emulated/0/xash/cstrike/addons/amxmodx/modules/"),
         ),
-        "Plugin klasörü" to listOf(
+        "Plugins folder" to listOf(
             File("/storage/emulated/0/xash/cstrike/addons/amxmodx/plugins/"),
         ),
-        "Oyun verisi" to listOf(
+        "Game data" to listOf(
             File("/storage/emulated/0/xash/cstrike/"),
         ),
     )
@@ -157,7 +157,7 @@ private fun GameFolderCard() {
                         Text(label, style = MaterialTheme.typography.titleSmall)
                         dirs.forEach { d ->
                             Text(
-                                if (d.exists()) "${d.path} ✓" else "${d.path} (yok)",
+                                if (d.exists()) "${d.path} ✓" else "${d.path} (missing)",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = if (d.exists()) Mint80 else OnDarkMuted,
                             )
@@ -167,7 +167,7 @@ private fun GameFolderCard() {
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                "Yamalanan APK kurulduktan sonra pluginleri/konfigleri bu klasörlere kopyalayabilirsin.",
+                "After the patched APK is installed, copy plugins and configs into these folders.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = OnDarkMuted,
             )
