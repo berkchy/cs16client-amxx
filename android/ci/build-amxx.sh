@@ -366,12 +366,13 @@ if [[ -n "$PAWNCC" && -n "$PLUGINS_SRC" && -d "$PLUGINS_SRC" ]]; then
   [ -d "$PLUGINS_SRC/include" ] && extra_inc+=(-i"$PLUGINS_SRC/include")
   for f in "$PLUGINS_SRC"/*.sma; do
     [ -e "$f" ] || continue
-    echo "   $(basename "$f")"
-    ( cd "$PC_BUILD" && "$PAWNCC" "${extra_inc[@]}" \
-        -o"$OUT/plugins/$(basename "${f%.sma}.amxx")" "$f" >/dev/null )
-    if [[ $? -ne 0 ]]; then
-        echo "   FAILED: $f" >&2
-        exit 1
+    local_out="$OUT/plugins/$(basename "${f%.sma}.amxx")"
+    if out=$( ( cd "$PC_BUILD" && "$PAWNCC" "${extra_inc[@]}" -o"$local_out" "$f" ) 2>&1 ); then
+      echo "   $(basename "$f") OK"
+    else
+      echo "   FAILED: $f" >&2
+      printf '%s\n' "$out" >&2
+      exit 1
     fi
   done
 fi
