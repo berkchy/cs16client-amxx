@@ -44,10 +44,9 @@ jobs:
       - name: Cross-compile core + modules + plugins
         shell: bash
         run: |
-          # Source is fetched from upstream by build-amxx.sh (alliedmodders
-          # amxmodx + Bots-United metamod-p) and customized by ./patches/;
-          # android/hlsdk (vendored fork SDK) is used directly, so no overlay
-          # copy step is needed.
+          # amxmodx is fetched from upstream by build-amxx.sh and customized
+          # by ./patches/; hlsdk + metamod-p are vendored directly in android/
+          # (android/hlsdk, android/mm-p), so no overlay copy step is needed.
           bash ./android/ci/build-amxx.sh "$GITHUB_WORKSPACE/src" "$ANDROID_NDK_HOME" \
             "$GITHUB_WORKSPACE/build-out" "$GITHUB_WORKSPACE/android/plugins-src"
 

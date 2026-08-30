@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 #
 # Cross-compiles the CS16Client AMXX core + modules for android arm64 using the
-# Android NDK, from CLEAN upstream sources:
-#   - alliedmodders/amxmodx@master   (rolling 1.10)
-#   - Bots-United/metamod-p@master   (aarch64 port patch)
-#   - FWGS/hlsdk-portable@master
+# Android NDK. Sources:
+#   - alliedmodders/amxmodx@master   (rolling 1.10, fetched from upstream)
+#   - android/mm-p                    (vendored Bots-United/metamod-p)
+#   - android/hlsdk                   (vendored HLSDK)
 #
 # All build customizations live as patch files under <repo>/patches/ and are
-# applied here; nothing is vendored into the repository.
+# applied here. hlsdk + metamod-p are vendored into the repository (git
+# submodules cannot be used since the linked repos are not under this account).
 #
 # Produces:
 #   $OUT/lib/arm64-v8a/libamxmodx.so
@@ -29,7 +30,6 @@ OUT=$3
 PLUGINS_SRC=${4:-}
 
 AMXX_REPO=https://github.com/alliedmodders/amxmodx.git
-METAMOD_REPO=https://github.com/Bots-United/metamod-p.git
 
 mkdir -p "$SRC" "$OUT/lib/arm64-v8a" "$OUT/plugins"
 
@@ -49,7 +49,19 @@ fetch() {
   fi
 }
 fetch amxmodx "$AMXX_REPO" yes
-fetch metamod-p "$METAMOD_REPO"
+
+# vendored_from <src-dir> <dst-dir>: copy a vendored tree from the repo and
+# turn it into a git repo so apply_patch() (git apply) works on it.
+vendored_from() {
+  local src=$1 dst=$2
+  if [ ! -d "$dst/.git" ]; then
+    echo "== vendoring $src -> $dst =="
+    mkdir -p "$dst"
+    cp -R "$src/." "$dst/"
+    (cd "$dst" && git init -q && git add -A && git -c user.name=ci -c user.email=ci@ci commit -q -m sourced)
+  fi
+}
+vendored_from "$REPO_ROOT/android/mm-p" "$SRC/metamod-p"
 
 apply_patch() {
   local patch=$1 dir=$2 subdir=${3:-}
