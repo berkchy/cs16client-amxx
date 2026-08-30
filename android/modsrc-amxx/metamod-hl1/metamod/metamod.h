@@ -79,7 +79,11 @@ typedef struct gamedll_s {
 extern gamedll_t GameDLL;
 
 // SDK variables for storing engine funcs and globals.
+#ifdef METAMOD_CORE
 extern HL_enginefuncs_t g_engfuncs;
+#else
+extern enginefuncs_t g_engfuncs;
+#endif
 extern globalvars_t  *gpGlobals;
 
 // Our modified version of the engine funcs, to give to plugins.

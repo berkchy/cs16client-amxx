@@ -192,17 +192,20 @@ METAMOD_INC=(
   -I"$SRC/hlsdk/game_shared" -I"$SRC/hlsdk/public" -I"$SRC/hlsdk/pm_shared"
 )
 METAMOD_DEFS=(
+  -DMETAMOD_CORE
   -Dstricmp=strcasecmp
   -Dstrnicmp=strncasecmp
   -D_snprintf=snprintf
   -D__BYTE_ORDER=__LITTLE_ENDIAN
 )
+echo "   METAMOD_DEFS: ${METAMOD_DEFS[*]}"
 for f in "$METAMOD"/*.cpp; do
   [ -e "$f" ] || continue
   base=$(basename "$f")
   obj="$TMP/metamod/$base.o"
   mkdir -p "$(dirname "$obj")"
-  "$CXX" "${FLAGS[@]}" "${CXXFLAGS[@]}" "${METAMOD_INC[@]}" "${METAMOD_DEFS[@]}" -c "$f" -o "$obj"
+  echo "   compiling $base"
+  "$CXX" "${FLAGS[@]}" "${CXXFLAGS[@]}" "${METAMOD_INC[@]}" "${METAMOD_DEFS[@]}" -c "$f" -o "$obj" 2>&1 || true
 done
 relink "$OUT/lib/arm64-v8a/libmetamod.so" "$TMP"/metamod/*.o
 echo "   metamod -> $(ls -l "$OUT/lib/arm64-v8a/libmetamod.so" | awk '{print $5}') bytes"
