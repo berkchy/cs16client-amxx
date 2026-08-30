@@ -371,12 +371,9 @@ if [[ -n "$PAWNCC" && -n "$PLUGINS_SRC" && -d "$PLUGINS_SRC" ]]; then
   for f in "$PLUGINS_SRC"/*.sma; do
     [ -e "$f" ] || continue
     local_out="$OUT/plugins/$(basename "${f%.sma}.amxx")"
-    out=$( ( cd "$PC_BUILD" && LC_ALL=C.UTF-8 LANG=C.UTF-8 stdbuf -oL -eL \
-             "$PAWNCC" "${extra_inc[@]}" -o"$local_out" "$f" ) 2>&1 )
-    rc=$?
-    if [ $rc -eq 0 ]; then
-      echo "   $(basename "$f") OK"
-    else
+    if ! out=$( ( cd "$PC_BUILD" && LC_ALL=C.UTF-8 LANG=C.UTF-8 stdbuf -oL -eL \
+             "$PAWNCC" "${extra_inc[@]}" -o"$local_out" "$f" ) 2>&1 ); then
+      rc=$?
       echo "   FAILED: $f (rc=$rc)" >&2
       printf '%s\n' "$out" >&2
       # lib-only sanity (same lib, no driver): does Compile64 succeed alone?
@@ -397,6 +394,7 @@ PY
       fi
       exit 1
     fi
+    echo "   $(basename "$f") OK"
   done
 fi
 
