@@ -344,10 +344,13 @@ done
 
 PAWNCC=""
 if command -v "$HOSTCXX" >/dev/null 2>&1 || [ -x "$HOSTCXX" ]; then
-  # -DHAVE_STDINT_H lets libpawnc skip its own int32_t typedefs (amx.h:41) so
-  # they don't clash with <stdint.h> pulled in by Binary.h:22; -I third_party
-  # resolves "zlib/zlib.h" (amxxpc.cpp:18, amxxpc.h:35).
-  "$HOSTCXX" -O2 -std=c++14 -DHAVE_STDINT_H \
+  # -DPAWN_CELL_SIZE=64 + HAVE_I64 keep cell 64-bit (amx_AlignCell -> amx_Align64,
+  # pointer<->cell casts in amx.cpp don't lose precision); AMX_ANSIONLY drops the
+  # wide-char paths so wcslen isn't needed; LINUX pulls in sclinux.h; HAVE_STDINT_H
+  # lets libpawnc skip its own int32_t typedefs; -I third_party resolves
+  # "zlib/zlib.h".
+  "$HOSTCXX" -O2 -std=c++14 -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DHAVE_STDINT_H \
+    -DLINUX -DAMX_ANSIONLY \
     -I"$LIBPC" -I"$AMXX/public" -I"$AMXX/compiler/amxxpc" -I"$AMXX/third_party" \
     -o "$PC_BUILD/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp \
     "$AMXX/compiler/amxxpc"/Binary.cpp "$AMXX/compiler/amxxpc"/amx.cpp \
