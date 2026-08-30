@@ -186,9 +186,23 @@ PCRE_A="$TMP/pcre-inst/lib/libpcre.a"
 # ------------------------------------------------------------- metamod
 echo "== building metamod =="
 METAMOD="$SRC/metamod-hl1/metamod"
+METAMOD_INC=(
+  -I"$METAMOD"
+  -I"$SRC/hlsdk/common" -I"$SRC/hlsdk/dlls" -I"$SRC/hlsdk/engine"
+  -I"$SRC/hlsdk/game_shared" -I"$SRC/hlsdk/public" -I"$SRC/hlsdk/pm_shared"
+)
+METAMOD_DEFS=(
+  -Dstricmp=strcasecmp
+  -Dstrnicmp=strncasecmp
+  -D_snprintf=snprintf
+  -D__BYTE_ORDER=__LITTLE_ENDIAN
+)
 for f in "$METAMOD"/*.cpp; do
   [ -e "$f" ] || continue
-  compile_one metamod "$f" "" ""
+  base=$(basename "$f")
+  obj="$TMP/metamod/$base.o"
+  mkdir -p "$(dirname "$obj")"
+  "$CXX" "${FLAGS[@]}" "${CXXFLAGS[@]}" "${METAMOD_INC[@]}" "${METAMOD_DEFS[@]}" -c "$f" -o "$obj"
 done
 relink "$OUT/lib/arm64-v8a/libmetamod.so" "$TMP"/metamod/*.o
 echo "   metamod -> $(ls -l "$OUT/lib/arm64-v8a/libmetamod.so" | awk '{print $5}') bytes"
