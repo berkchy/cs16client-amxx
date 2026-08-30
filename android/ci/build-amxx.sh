@@ -332,10 +332,25 @@ done
 "$HOSTCC" -shared -o "$PC_BUILD/amxxpc32.so" "$PC_BUILD"/obj/*.o
 cp "$PC_BUILD/amxxpc32.so" "$PC_BUILD/amxxpc.so"
 
+# Host zlib for the amxxpc driver. amxxpc.cpp includes "zlib/zlib.h" and calls
+# compress/compressBound, which upstream resolves by putting third_party/ on the
+# include path (the .vcxproj does exactly that) and linking the tree's own
+# (intermediate, cdecl) zlib into the binary.
+Z_DIR="$AMXX/third_party/zlib"
+for f in "$Z_DIR"/*.c; do
+  [ -e "$f" ] || continue
+  "$HOSTCC" -O2 -fPIC -c "$f" -o "$PC_BUILD/obj/zlib-$(basename "${f%.c}").o"
+done
+
 PAWNCC=""
 if command -v "$HOSTCXX" >/dev/null 2>&1 || [ -x "$HOSTCXX" ]; then
-  "$HOSTCXX" -O2 -std=c++14 -I"$LIBPC" -I"$AMXX/compiler/amxxpc" \
-    -o "$PC_BUILD/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp "$AMXX/compiler/amxxpc"/Binary.cpp
+  # -DHAVE_STDINT_H lets libpawnc skip its own int32_t typedefs (amx.h:41) so
+  # they don't clash with <stdint.h> pulled in by Binary.h:22; -I third_party
+  # resolves "zlib/zlib.h" (amxxpc.cpp:18, amxxpc.h:35).
+  "$HOSTCXX" -O2 -std=c++14 -DHAVE_STDINT_H \
+    -I"$LIBPC" -I"$AMXX/compiler/amxxpc" -I"$AMXX/third_party" \
+    -o "$PC_BUILD/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp \
+    "$AMXX/compiler/amxxpc"/Binary.cpp "$PC_BUILD"/obj/zlib-*.o
   PAWNCC="$PC_BUILD/amxxpc"
 else
   echo "   host $HOSTCXX not found, skipping plugin compilation"
