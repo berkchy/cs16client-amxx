@@ -58,6 +58,7 @@ data class ExcludeRule(
             prefixes = listOf(
                 "lib/arm64-v8a/libamxmodx.so",
                 "lib/arm64-v8a/lib",       // matches lib<name>_amxx_amd64.so module libs
+                "lib/arm64-v8a/libmetamod.so",
             ),
             exact = listOf(
                 "META-INF/",

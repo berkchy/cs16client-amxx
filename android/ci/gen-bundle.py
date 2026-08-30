@@ -42,6 +42,15 @@ def main():
         "required": True,
         "description": "AMX Mod X core",
     })
+    metamod = os.path.join(libdir, "libmetamod.so")
+    if os.path.exists(metamod):
+        entries.append({
+            "source": "lib/arm64-v8a/libmetamod.so",
+            "target": "lib/arm64-v8a/libmetamod.so",
+            "method": "STORED",
+            "required": True,
+            "description": "Metamod HL1",
+        })
     for mod in MODULES:
         p = os.path.join(libdir, f"lib{mod}_amxx_amd64.so")
         if os.path.exists(p):

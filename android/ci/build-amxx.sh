@@ -183,6 +183,16 @@ if [[ ! -f "$TMP/libpcre.a" ]]; then
 fi
 PCRE_A="$TMP/pcre-inst/lib/libpcre.a"
 
+# ------------------------------------------------------------- metamod
+echo "== building metamod =="
+METAMOD="$SRC/metamod-hl1/metamod"
+for f in "$METAMOD"/*.cpp; do
+  [ -e "$f" ] || continue
+  compile_one metamod "$f" "" ""
+done
+relink "$OUT/lib/arm64-v8a/libmetamod.so" "$TMP"/metamod/*.o
+echo "   metamod -> $(ls -l "$OUT/lib/arm64-v8a/libmetamod.so" | awk '{print $5}') bytes"
+
 # ----------------------------------------------------------------- modules
 build_module() {
   local name="$1" modsub="$2" extra_inc="$3" extra_defs="$4"
