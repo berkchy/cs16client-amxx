@@ -91,10 +91,18 @@ jobs:
       - name: Install Android SDK platform & build tools
         shell: bash
         run: |
-          SDKMGR=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-          [ -x "$SDKMGR" ] || SDKMGR=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | sort -V | tail -1)
-          echo "y" | "$SDKMGR" --install "platforms;android-36" "build-tools;35.0.0"
-          yes | "$SDKMGR" --licenses
+          # The runner's preinstalled sdkmanager is too old for current SDK XML
+          # (v4), which silently breaks --install. Use a fresh cmdline-tools zip.
+          CMDT=commandlinetools-linux-11076708_latest.zip
+          mkdir -p "$RUNNER_TEMP/sdkman"
+          curl -fsSL -o "$RUNNER_TEMP/$CMDT" "https://dl.google.com/android/repository/$CMDT"
+          rm -rf "$RUNNER_TEMP/sdkman/cmdline-tools"
+          unzip -qo "$RUNNER_TEMP/$CMDT" -d "$RUNNER_TEMP/sdkman"
+          SDKM="$RUNNER_TEMP/sdkman/cmdline-tools/bin/sdkmanager"
+          yes | "$SDKM" --sdk_root="$ANDROID_HOME" --licenses >/dev/null 2>&1 || true
+          "$SDKM" --sdk_root="$ANDROID_HOME" --install "platforms;android-36" "build-tools;35.0.0"
+          test -d "$ANDROID_HOME/platforms/android-36"
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
