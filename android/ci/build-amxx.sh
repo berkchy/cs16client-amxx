@@ -330,7 +330,7 @@ for s in sc1 sc2 sc3 sc4 sc5 sc6 sc7 scvars scmemfil scstate sclist sci18n \
          pawncc libpawnc prefix memfile sp_symhash; do
   f="$LIBPC/$s.c"
   [ -e "$f" ] || continue
-  "$HOSTCC" $PC_COMMON -DNO_MAIN -DPAWNC_DLL -D_GNU_SOURCE -DENABLE_BINRELOC \
+  "$HOSTCC" $PC_COMMON -DNO_MAIN -DPAWNC_DLL -D_GNU_SOURCE \
     -c "$f" -o "$PC_BUILD/obj/$s.o"
 done
 "$HOSTCC" -shared -o "$PC_BUILD/amxxpc32.so" "$PC_BUILD"/obj/*.o -lm -lpthread
