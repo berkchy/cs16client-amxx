@@ -348,7 +348,7 @@ if command -v "$HOSTCXX" >/dev/null 2>&1 || [ -x "$HOSTCXX" ]; then
   # they don't clash with <stdint.h> pulled in by Binary.h:22; -I third_party
   # resolves "zlib/zlib.h" (amxxpc.cpp:18, amxxpc.h:35).
   "$HOSTCXX" -O2 -std=c++14 -DHAVE_STDINT_H \
-    -I"$LIBPC" -I"$AMXX/compiler/amxxpc" -I"$AMXX/third_party" \
+    -I"$LIBPC" -I"$AMXX/public" -I"$AMXX/compiler/amxxpc" -I"$AMXX/third_party" \
     -o "$PC_BUILD/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp \
     "$AMXX/compiler/amxxpc"/Binary.cpp "$PC_BUILD"/obj/zlib-*.o
   PAWNCC="$PC_BUILD/amxxpc"
