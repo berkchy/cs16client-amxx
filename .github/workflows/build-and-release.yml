@@ -1,0 +1,149 @@
+name: build & release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Bundle version tag (default: 1.10.0)'
+        required: false
+        default: '1.10.0'
+
+permissions:
+  contents: write
+
+env:
+  BUNDLE_VERSION: ${{ github.event.inputs.version || '1.10.0' }}
+  ANDROID_DIR: android
+
+jobs:
+  amxx-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Copy vendored sources into AMXX tree
+        shell: bash
+        run: |
+          VENDOR="$GITHUB_WORKSPACE/android/modsrc-amxx"
+          SRC="$GITHUB_WORKSPACE/src/amxmodx"
+          for f in "$VENDOR/public/"*.h; do
+            [ -f "$f" ] && cp -f "$f" "$SRC/public/$(basename "$f")"
+          done
+          for d in memtools resdk amtl sdk; do
+            [ -d "$VENDOR/public/$d" ] && rm -rf "$SRC/public/$d" && cp -r "$VENDOR/public/$d" "$SRC/public/$d"
+          done
+          for d in common dlls engine game_shared public pm_shared; do
+            [ -d "$VENDOR/hlsdk/$d" ] && rm -rf "$SRC/../hlsdk/$d" && cp -r "$VENDOR/hlsdk/$d" "$SRC/../hlsdk/$d"
+          done
+          [ -d "$VENDOR/metamod-hl1/metamod" ] && rm -rf "$SRC/../metamod-hl1/metamod" && cp -r "$VENDOR/metamod-hl1/metamod" "$SRC/../metamod-hl1/metamod"
+          [ -d "$VENDOR/third_party" ] && rm -rf "$SRC/third_party" && cp -r "$VENDOR/third_party" "$SRC/third_party"
+          for d in compiler amxmodx; do
+            [ -d "$VENDOR/$d" ] && rm -rf "$SRC/$d" && cp -r "$VENDOR/$d" "$SRC/$d"
+          done
+          find "$VENDOR/modules" -name 'moduleconfig.h' 2>/dev/null | while read f; do
+            rel="${f#$VENDOR/modules/}"
+            mkdir -p "$(dirname "$SRC/modules/$rel")"
+            cp -f "$f" "$SRC/modules/$rel"
+          done
+          for d in "$VENDOR/modules/"*/; do
+            [ -d "$d" ] && modname=$(basename "$d") && rm -rf "$SRC/modules/$modname" && cp -r "$d" "$SRC/modules/$modname"
+          done
+
+      - name: Set up Android SDK/NDK tooling
+        uses: android-actions/setup-android@v3
+      - name: Install NDK r25c
+        shell: bash
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;25.2.9519653" \
+            || (SDKM=$(ls -d $ANDROID_HOME/cmdline-tools/*/bin/sdkmanager 2>/dev/null | head -1); \
+                [ -n "$SDKM" ] && echo "y" | "$SDKM" "ndk;25.2.9519653")
+          NDK_ROOT=$(ls -d "$ANDROID_HOME"/ndk/25.2.9519653 2>/dev/null)
+          echo "ANDROID_NDK_HOME=$NDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Cross-compile core + modules + plugins
+        shell: bash
+        run: |
+          bash ./android/ci/build-amxx.sh "$GITHUB_WORKSPACE/src" "$ANDROID_NDK_HOME" \
+            "$GITHUB_WORKSPACE/build-out" "$GITHUB_WORKSPACE/plugins-src"
+
+      - name: Package release bundles
+        shell: bash
+        run: |
+          RELEASE_VERSION="$BUNDLE_VERSION" python3 ./android/ci/gen-bundle.py \
+            "$GITHUB_WORKSPACE/build-out/lib/arm64-v8a" \
+            "$GITHUB_WORKSPACE/amxx-bundle.zip" \
+            "$GITHUB_WORKSPACE/build-out/plugins" \
+            "$GITHUB_WORKSPACE/amxx-plugins.zip"
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-bundles
+          path: |
+            amxx-bundle.zip
+            amxx-plugins.zip
+
+  app-apk:
+    needs: amxx-bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Bundle debug signing keystore into app assets
+        shell: bash
+        run: |
+          mkdir -p android/app/src/main/assets/keystore
+          cp android/debug/patcher-release.p12 android/app/src/main/assets/keystore/debug.p12
+
+      - name: Download release bundles (for app fallback)
+        uses: actions/download-artifact@v4
+        with:
+          name: release-bundles
+          path: bundles
+
+      - name: Generate wrapper & build the patcher APK
+        working-directory: android
+        run: |
+          gradle wrapper --gradle-version 8.9 --distribution-type bin
+          ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Upload app APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: patcher-apk
+          path: android/app/build/outputs/apk/release/*.apk
+
+  publish:
+    needs: [amxx-bundle, app-apk]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download everything
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/release-bundles/amxx-bundle.zip
+            release-assets/release-bundles/amxx-plugins.zip
+            release-assets/patcher-apk/android/app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
