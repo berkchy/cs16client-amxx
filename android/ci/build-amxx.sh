@@ -350,7 +350,8 @@ if command -v "$HOSTCXX" >/dev/null 2>&1 || [ -x "$HOSTCXX" ]; then
   "$HOSTCXX" -O2 -std=c++14 -DHAVE_STDINT_H \
     -I"$LIBPC" -I"$AMXX/public" -I"$AMXX/compiler/amxxpc" -I"$AMXX/third_party" \
     -o "$PC_BUILD/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp \
-    "$AMXX/compiler/amxxpc"/Binary.cpp "$PC_BUILD"/obj/zlib-*.o
+    "$AMXX/compiler/amxxpc"/Binary.cpp "$AMXX/compiler/amxxpc"/amx.cpp \
+    "$PC_BUILD"/obj/zlib-*.o
   PAWNCC="$PC_BUILD/amxxpc"
 else
   echo "   host $HOSTCXX not found, skipping plugin compilation"
