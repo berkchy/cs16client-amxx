@@ -217,6 +217,7 @@ echo "== building metamod (metamod-p, aarch64) =="
 MM_INC=(
   -I"$METAMOD"
   -I"$MMHLSDK/engine" -I"$MMHLSDK/common" -I"$MMHLSDK/pm_shared" -I"$MMHLSDK/dlls" -I"$MMHLSDK"
+  -I"$HLSDK" -I"$HLSDK/dlls"
 )
 MM_DEFS=(
   -D__METAMOD_BUILD__
