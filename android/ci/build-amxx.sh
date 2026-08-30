@@ -321,7 +321,7 @@ LIBPC="$AMXX/compiler/libpc300"
 # amxmodx-pawncc-64bit.patch drops the prefix.h include.
 PC_BUILD="$TMP/libpc300"
 mkdir -p "$PC_BUILD/obj"
-PC_COMMON="-std=gnu17 -O2 -fPIC -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DLINUX \
+PC_COMMON="-std=gnu17 -O0 -fPIC -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DLINUX \
   -DHAVE_UNISTD_H -DHAVE_INTTYPES_H -DHAVE_STDINT_H -DHAVE_ALLOCA_H -I$LIBPC"
 # Mirror upstream AMBuilder's amxxpc32 source list exactly; NO_MAIN on every
 # unit strips main()s (sc1.c, pawncc.c, prefix.c, ...), PAWNC_DLL selects the
@@ -371,11 +371,30 @@ if [[ -n "$PAWNCC" && -n "$PLUGINS_SRC" && -d "$PLUGINS_SRC" ]]; then
   for f in "$PLUGINS_SRC"/*.sma; do
     [ -e "$f" ] || continue
     local_out="$OUT/plugins/$(basename "${f%.sma}.amxx")"
-    if out=$( ( cd "$PC_BUILD" && "$PAWNCC" "${extra_inc[@]}" -o"$local_out" "$f" ) 2>&1 ); then
+    out=$( ( cd "$PC_BUILD" && LC_ALL=C.UTF-8 LANG=C.UTF-8 stdbuf -oL -eL \
+             "$PAWNCC" "${extra_inc[@]}" -o"$local_out" "$f" ) 2>&1 )
+    rc=$?
+    if [ $rc -eq 0 ]; then
       echo "   $(basename "$f") OK"
     else
-      echo "   FAILED: $f" >&2
+      echo "   FAILED: $f (rc=$rc)" >&2
       printf '%s\n' "$out" >&2
+      # lib-only sanity (same lib, no driver): does Compile64 succeed alone?
+      if command -v python3 >/dev/null 2>&1; then
+        LC_ALL=C.UTF-8 python3 - "$f" "$local_out" "$AMXX/plugins/include" "$PC_BUILD" <<'PY' >&2 || true
+import ctypes, os, sys
+sma, outfile, inc, build = sys.argv[1:5]
+os.chdir(build)
+lib = ctypes.CDLL("./amxxpc32.so")
+f = lib.Compile64
+f.restype = ctypes.c_int
+f.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_char_p)]
+args = ["amxxpc", "-i" + inc, "-o" + outfile, sma]
+argv = (ctypes.c_char_p * len(args))(*(a.encode() for a in args))
+rc = f(len(args), argv)
+print(f"[lib-only] Compile64 rc={rc} file_exists={os.path.exists(outfile)}", file=sys.stderr)
+PY
+      fi
       exit 1
     fi
   done
