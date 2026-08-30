@@ -12,13 +12,16 @@
 #  define _WINSPOOL_H	
 #  include <windows.h>
 #  include <winnt.h>     // Header structures
-#elif defined(linux) || defined(__linux__) 
+#elif defined(linux) || defined(__linux__)
 #  ifndef _GNU_SOURCE
 #    define _GNU_SOURCE
 #  endif
 #  include <dlfcn.h>			// dladdr()
 #  include <link.h>				// ElfW(Phdr/Ehdr) macros.
                   				// _DYNAMIC, r_debug, link_map, etc.
+#  ifndef _DYNAMIC
+extern ElfW(Dyn) _DYNAMIC[];
+#  endif
 #else
 # include <CoreFoundation/CoreFoundation.h>
 # include <dlfcn.h>				// dladdr()

@@ -205,7 +205,7 @@ for f in "$METAMOD"/*.cpp; do
   obj="$TMP/metamod/$base.o"
   mkdir -p "$(dirname "$obj")"
   echo "   compiling $base"
-  "$CXX" "${FLAGS[@]}" "${CXXFLAGS[@]}" "${METAMOD_INC[@]}" "${METAMOD_DEFS[@]}" -c "$f" -o "$obj" 2>&1 || true
+  "$CXX" "${FLAGS[@]}" "${CXXFLAGS[@]}" -Wno-reserved-user-defined-literal "${METAMOD_INC[@]}" "${METAMOD_DEFS[@]}" -c "$f" -o "$obj" 2>&1 || true
 done
 relink "$OUT/lib/arm64-v8a/libmetamod.so" "$TMP"/metamod/*.o
 echo "   metamod -> $(ls -l "$OUT/lib/arm64-v8a/libmetamod.so" | awk '{print $5}') bytes"
