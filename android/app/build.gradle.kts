@@ -5,6 +5,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+base {
+    archivesName.set("CS16-Meta-Patcher")
+}
+
+val storeFile = rootProject.file("debug/patcher-release.p12")
+
 android {
     namespace = "com.pickle.patcher"
     compileSdk = 35
@@ -18,9 +24,21 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = storeFile
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+            isEnableV1Signing = true
+            isEnableV2Signing = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

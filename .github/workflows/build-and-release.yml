@@ -155,5 +155,5 @@ jobs:
             release-assets/release-bundles/amxx-bundle.zip
             release-assets/release-bundles/amxx-plugins.zip
             release-assets/release-bundles/amxx-addons.zip
-            release-assets/patcher-apk/android/app/build/outputs/apk/release/*.apk
+            release-assets/patcher-apk/*.apk
           generate_release_notes: true
