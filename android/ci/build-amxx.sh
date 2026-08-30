@@ -323,13 +323,17 @@ PC_BUILD="$TMP/libpc300"
 mkdir -p "$PC_BUILD/obj"
 PC_COMMON="-std=gnu17 -O2 -fPIC -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DLINUX \
   -DHAVE_UNISTD_H -DHAVE_INTTYPES_H -DHAVE_STDINT_H -DHAVE_ALLOCA_H -I$LIBPC"
-for f in "$LIBPC"/sc*.c "$LIBPC"/libpawnc.c; do
+# Mirror upstream AMBuilder's amxxpc32 source list exactly; NO_MAIN on every
+# unit strips main()s (sc1.c, pawncc.c, prefix.c, ...), PAWNC_DLL selects the
+# exported sp_Compile/LibCompile ABI, sp_symhash.c provides NewHashTable.
+for s in sc1 sc2 sc3 sc4 sc5 sc6 sc7 scvars scmemfil scstate sclist sci18n \
+         pawncc libpawnc prefix memfile sp_symhash; do
+  f="$LIBPC/$s.c"
   [ -e "$f" ] || continue
-  extra=""
-  [[ "$(basename "$f")" == sc1.c ]] && extra="-DNO_MAIN"
-  "$HOSTCC" $PC_COMMON -DPAWNC_DLL $extra -c "$f" -o "$PC_BUILD/obj/$(basename "${f%.c}").o"
+  "$HOSTCC" $PC_COMMON -DNO_MAIN -DPAWNC_DLL -D_GNU_SOURCE -DENABLE_BINRELOC \
+    -c "$f" -o "$PC_BUILD/obj/$s.o"
 done
-"$HOSTCC" -shared -o "$PC_BUILD/amxxpc32.so" "$PC_BUILD"/obj/*.o
+"$HOSTCC" -shared -o "$PC_BUILD/amxxpc32.so" "$PC_BUILD"/obj/*.o -lm -lpthread
 cp "$PC_BUILD/amxxpc32.so" "$PC_BUILD/amxxpc.so"
 
 # Host zlib for the amxxpc driver. amxxpc.cpp includes "zlib/zlib.h" and calls
