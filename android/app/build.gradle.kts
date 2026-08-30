@@ -9,7 +9,7 @@ base {
     archivesName.set("CS16-Meta-Patcher")
 }
 
-val storeFile = rootProject.file("debug/patcher-release.p12")
+val signingStoreFile = rootProject.file("debug/patcher-release.p12")
 
 android {
     namespace = "com.pickle.patcher"
@@ -26,7 +26,7 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = storeFile
+            storeFile = signingStoreFile
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
