@@ -77,6 +77,8 @@ jobs:
             "$GITHUB_WORKSPACE/amxx-bundle.zip" \
             "$GITHUB_WORKSPACE/build-out/plugins" \
             "$GITHUB_WORKSPACE/amxx-plugins.zip"
+          cd "$GITHUB_WORKSPACE"
+          zip -r amxx-addons.zip addons/ -x '*.git*'
 
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
@@ -85,6 +87,7 @@ jobs:
           path: |
             amxx-bundle.zip
             amxx-plugins.zip
+            amxx-addons.zip
 
   app-apk:
     needs: amxx-bundle
@@ -145,5 +148,6 @@ jobs:
           files: |
             release-assets/release-bundles/amxx-bundle.zip
             release-assets/release-bundles/amxx-plugins.zip
+            release-assets/release-bundles/amxx-addons.zip
             release-assets/patcher-apk/android/app/build/outputs/apk/release/*.apk
           generate_release_notes: true
