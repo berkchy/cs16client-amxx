@@ -41,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        CrashLog.install(applicationContext)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {

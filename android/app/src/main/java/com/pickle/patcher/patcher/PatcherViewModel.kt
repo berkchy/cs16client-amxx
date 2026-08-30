@@ -125,7 +125,7 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                 _releaseNote.value = rel.name.ifBlank { rel.tag_name }
                 applyBundle(asset.name, b)
             } catch (t: Throwable) {
-                _bundle.value = BundleState.DownloadError(t.message ?: "Bilinmeyen hata")
+                _bundle.value = BundleState.DownloadError(t.message ?: "Unknown error")
             }
         }
     }
@@ -159,7 +159,7 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                 lastReport = report
                 _patch.value = PatchUiState.Done(report)
             } catch (t: Throwable) {
-                _patch.value = PatchUiState.Failed(t.message ?: "Bilinmeyen hata")
+                _patch.value = PatchUiState.Failed(t.message ?: "Unknown error")
             }
         }
     }
