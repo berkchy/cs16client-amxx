@@ -104,9 +104,14 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun useEmbeddedBundle() {
-        val b = bundleProvider.loadEmbedded()
-        if (b != null) applyBundle("Embedded (offline)", b)
-        else _bundle.value = BundleState.DownloadError("No bundle is available on this device — download it online.")
+        viewModelScope.launch(Dispatchers.IO) {
+            val b = bundleProvider.loadEmbedded()
+            withContext(Dispatchers.Main) {
+                if (b != null) applyBundle("Embedded (offline)", b)
+                else _bundle.value =
+                    BundleState.DownloadError("No bundle is available on this device — download it online.")
+            }
+        }
     }
 
     fun useCachedBundle() {

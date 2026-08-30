@@ -96,7 +96,7 @@ data class Bundle(
             val file = ZipRaw.open(zipBytes) ?: error("Not a zip archive")
             try {
                 val manifestEntry = file.entries.getValue(MANIFEST_PATH)
-                val manifestBytes = file.readRaw(manifestEntry)
+                val manifestBytes = file.readContent(manifestEntry)
                 val manifest = BundleManifest.parse(manifestBytes.toString(Charsets.UTF_8))
 
                 val files = HashMap<String, ByteArray>()

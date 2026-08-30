@@ -95,7 +95,7 @@ class ZipRaw private constructor(
                 }
             }
             if (eocdPos < 0) throw IOException("EOCD not found")
-            val eocd = ByteBuffer.wrap(eocdBuf, eocdPos, 22).order(ByteOrder.LITTLE_ENDIAN)
+            val eocd = ByteBuffer.wrap(java.util.Arrays.copyOfRange(eocdBuf, eocdPos, eocdPos + 22)).order(ByteOrder.LITTLE_ENDIAN)
             val cdOffset = eocd.getInt(16).toLong() and 0xffffffffL
             val cdSize = eocd.getInt(12).toLong() and 0xffffffffL
             val entryCount = eocd.getShort(10).toInt() and 0xffff
@@ -111,7 +111,7 @@ class ZipRaw private constructor(
                 if (cb.remaining() < 46) throw IOException("CD truncated")
                 val sig = cb.int
                 if (sig != 0x02014b50) throw IOException("Bad CD signature @ entry $n")
-                cb.position(cb.position() + 4 + 4)          // version made/by, version needed
+                cb.position(cb.position() + 4)              // version made/by, version needed
                 val flags = cb.short.toInt() and 0xffff
                 val method = cb.short.toInt() and 0xffff
                 cb.position(cb.position() + 2 + 2)          // mod time/date
@@ -157,7 +157,7 @@ class ZipRaw private constructor(
 
         private fun inflate(raw: ByteArray, expected: Int): ByteArray {
             val out = java.io.ByteArrayOutputStream(expected)
-            val inf = java.util.zip.InflaterInputStream(java.io.ByteArrayInputStream(raw))
+            val inf = java.util.zip.InflaterInputStream(java.io.ByteArrayInputStream(raw), java.util.zip.Inflater(true))
             inf.copyTo(out)
             return out.toByteArray()
         }

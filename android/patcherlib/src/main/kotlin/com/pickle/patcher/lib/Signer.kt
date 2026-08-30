@@ -21,7 +21,7 @@ class SigningKeystore(
 ) {
     val privateKey: PrivateKey get() = keyStore.getKey(alias, keyPassword) as PrivateKey
     val certificateChain: List<X509Certificate>
-        get() = (keyStore.getCertificateChain(alias) as Array<X509Certificate>).toList()
+        get() = keyStore.getCertificateChain(alias).map { it as X509Certificate }
 
     val certificate: X509Certificate get() = certificateChain.first()
 
