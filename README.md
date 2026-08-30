@@ -1,91 +1,82 @@
-# Xash3D AMXX for Android (aarch64)
+# CS16Client AMXX Patcher
 
-Runs **AMX Mod X 1.10.0-manual** inside the **CS16Client (Xash3D FWGS)** Android build by
-injecting a **Metamod** runtime, then building AMXX as a metamod *metaplugin*.
+Repacks the **CS16Client (Xash3D)** Android APK to bundle **AMX Mod X** (64-bit-cell build),
+**Metamod-P** and a full addons layout, then re-signs it. No AMXX server-side install needed;
+the patched APK is self-contained.
 
-Everything here was built and verified on a real aarch64 Android device (Termux + NDK r25c).
-No Android Studio, no Gradle: the engine APK is repacked directly with `python3`/`zipalign`/`apksigner`.
+Only **arm64-v8a** (`aarch64`) is supported — this is the platform Xash3D uses on Android and the
+only ABI the ported metamod/AMXX targets. arm32/x86 are out of scope by design.
 
 ## Why 64-bit cells
 
-Official AMXX ships **32-bit cells** (`PAWN_CELL_SIZE=32`). That is fine on 32-bit CPUs, but on
-aarch64 pointers are 8 bytes and don't fit in a 4-byte cell. `amx_BrowseRelocate` writes the
-relocated opcode *(a function pointer)* into each code cell, so the bytecode **must** be built so
-that `sizeof(cell) == sizeof(void*)`. This tree therefore **forces 64-bit cells** everywhere:
-core, all modules, the compiler and all shipped plugins. 32-bit `.amxx` files are rejected at load
-(clean "section not found", never a crash).
+Official AMXX ships **32-bit cells** (`PAWN_CELL_SIZE=32`). On aarch64 a pointer is 8 bytes and
+does not fit in a 4-byte cell: `amx_BrowseRelocate` stores relocated function pointers into code
+cells, so `sizeof(cell)` must equal `sizeof(void*)`. Everything here therefore builds with
+**64-bit cells**: core, every module, the compiler and all shipped plugins. 32-bit `.amxx` files
+are rejected cleanly at load time.
 
 ## Repository layout
 
 ```
-amxmodx/          patched AMX Mod X 1.10.0-manual source (64-bit cell build)
-hlsdk/            Half-Life SDK headers (needed to compile AMXX)
-metamod-hl1/      classic Metamod 1.19 headers (AMXX-style metaplugin ABI)
-metamod-fwgs/     vendored FWGS/metamod-fwgs source (@ d80b2fe, unmodified)
-tools/            relink + repack scripts, assert shim sources
+android/
+  app/                  patcher APK (Jetpack Compose UI, pick+patch+sign flow)
+  app/src/main/assets/  embedded bundle.zip (offline fallback, populated by CI)
+  patcherlib/           pure-JVM patching core: bundle manifest, ZipRepacker,
+                        apksig signing, CLI
+  ci/
+    build-amxx.sh       fetches upstream AMXX master + applies patches/,
+                        cross-compiles core/modules/metamod/pcre/pawncc (NDK)
+    gen-bundle.py       packs build output into release bundles (bundle.json)
+  hlsdk/                vendored Half-Life SDK headers the AMXX build needs
+  plugins-src/          sample .sma compiled during the AMXX build
+  debug/                keystore used to re-sign patched APKs
+patches/                in-order patches applied on top of upstream AMXX master
+  amxmodx-CDetour-cell.diff     CDetour cell typedef (cell_t32/cell_t64)
+  amxmodx-64bit-cell-casts.diff explicit cell casts in file.cpp
+  amxmodx-memtools-dlfcn.diff   dlfcn.h include for MemoryUtils on Linux
+  amxmodx-amtl-64bit.diff       two-argument Min/Max in amtl (submodule)
+  amxmodx-pawncc-64bit.patch    amxxpc.cpp Compile64 + sc1.c BinReloc drop
+  amxmodx-android-load-CModule.patch  Android module loader (dlopen)
+  amxmodx-android-load-modules.patch  modules.cpp Linux dlopen path
+  metamod-p-aarch64.patch       port of metamod-p to aarch64 Android
 ```
 
-## How the pieces fit
+The `amxx-addons` branch holds the shipped addons tree (configs, gamedata, stock plugins) — the
+CI checks it out and folds it into the bundle.
 
-1. **Engine APK** (`su.xash.engine.test`) is the unmodified Xash3D FWGS CS16Client build.
-   Android extracts `lib/<abi>/lib*.so` entries into the app native dir.
-2. **Metamod** is `libyapb_android_arm64.so` — a metamod-fwgs build whose `GiveFnptrsToDll` hook
-   is wired through the game DLL. It is *not* loaded by the engine; it loads the game DLL itself
-   and transparently forwards engine calls.
-3. **AMXX core** `libamxmodx.so` + the 11 module `.so` files are loaded by metamod as a
-   *metaplugin* (`addons/amxmodx/configs/metamod/plugins.ini`, paths unquoted).
-4. All AMXX libs are **relinked** with static `libc++` (Android has no `libstdc++.so`) and a
-   link-time **`--wrap=__assert2/__assert_fail`** shim so the engine never aborts on a Pawn
-   `assert()`; the shim logs to `/storage/emulated/0/xash/assert.txt` and continues.
+## What a patched APK contains
 
-## Storage layout (installed app)
+The bundle manifest (`bundle.json`) drives the patcher:
 
-```
-/storage/emulated/0/xash/cstrike/addons/amxmodx/
-  configs/plugins.ini      plugin list (one name per line, no paths)
-  plugins/*.amxx           64-bit-cell plugins
-  data/lang/*.txt          multilingual dictionaries
-  data/gamedata/           game configs (see Known issues)
-  logs/                    amxmodx + error logs
-```
+- `lib/arm64-v8a/libamxmodx.so`, `libmetamod.so`, 11 module libraries
+  (`lib<cstrike|csx|engine|fakemeta|fun|geoip|json|nvault|regex|sockets|sqlite>_amxx_amd64.so`) —
+  written **STORED** and **16 KB-aligned** (Android 15+ / 16 KB-page devices).
+- `addons/**` — full AMXX config tree (configs, gamedata, plugins) written DEFLATED, so the game
+  loadout appears out of the box without manual file installs.
 
-CDLL launch: CS16Client runs `cstrike/addons/metamod/metamod.ini` configured with
-`gamedll "addons/amxmodx/libyapb_android_arm64.so"`.
+The patcher prunes only those exact 13 libraries plus `META-INF/` from the picked APK and re-signs
+it with the bundled debug keystore. All other entries (engine `libxash*.so`, resources, assets)
+are copied through untouched and re-compressed per their original method.
 
-## Building (Termux)
+## Building (CI)
 
-```bash
-# 1. ambuild the patched source (compiler, core, modules, plugins)
-cd build && ambuild --no-color
+`.github/workflows/build-and-release.yml`:
+1. `build-amxx` — clone upstream `alliedmodders/amxmodx` master (with the `public/amtl` submodule),
+   apply `patch -p1` in order, compile with NDK r25c: AMXX core + 11 modules, metamod-p aarch64,
+   static pcre, and a host `pawncc` (64-bit) used to compile `.amxx` plugins from `.sma`.
+2. `amxx-bundle` — `gen-bundle.py` produces `amxx-bundle.zip` (libraries + addons + bundle.json),
+   `amxx-plugins.zip`, `amxx-addons.zip`; uploaded as a GitHub release (`amxx-bundle*.zip`).
+3. `app-apk` — embeds `amxx-bundle.zip` into the app assets (offline fallback) and assembles +
+   signs the patcher APK.
 
-# 2. relink core + 11 modules + metamod with static libc++ and the assert shim
-bash ../tools/relink12.sh        # produces *.so.plt / module .so with wraps
+`PatcherViewModel` fetches the newest release bundle at runtime; if online download fails the
+embedded bundle is used, so patching always works.
 
-# 3. repack the engine APK (python-only; keeps per-entry compression like the reference APK)
-python3 tools/pack13.py          # -> CS16Client-AMXX13-unsigned.apk
+## Known issues / status
 
-# 4. align + sign (create your own key first!)
-keytool -genkey -keystore debug.keystore -alias androiddebugkey -storepass android \
-        -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -validity 10000
-zipalign -f -p 4 CS16Client-AMXX13-unsigned.apk CS16Client-AMXX13-aligned.apk
-apksigner sign --ks debug.keystore --ks-key-alias androiddebugkey \
-        --ks-pass pass:android --key-pass pass:android \
-        --out CS16Client-AMXX13-signed.apk CS16Client-AMXX13-aligned.apk
-```
-
-Prerequisites: AMBuild 2 (`pip install ambuild2`), Android NDK r25c, `python3`, `zipalign`,
-`apksigner`, a `aarch64-linux-android-strip` binary, and a reference APK named `REF.apk`
-(pack scripts copy its compression map so Android tooling stays happy).
-
-## Known issues
-
-- **SMC parser (gamedata)**: `ParseStream_SMCE` crashes for files larger than the 4 KiB internal
-  buffer (`amxmodx/amxmodx/CTextParsers.cpp`, multi-chunk relocation path). Bypassed by shipping
-  an empty 81-byte `data/gamedata/common.games/master.games.txt` (original backed up as `.bak`).
-  The real parser fix is future work.
-- **adminslots.amxx** logs one `Invalid CVAR pointer` / runtime error at map start (cvar creation
-  timing); gameplay and admin features are unaffected.
-- **Second launch black screen**: occasionally the app relaunch produces no `engine.log` writes at
-  all — that failure happens in the Android/SDL layer *before* the native engine starts, unrelated
-  to metamod/AMXX. Swipe the app away and relaunch.
-- `libvgui_support.so` is missing from the stock APK too; the engine warning is benign.
+- Local builds are verified through the full native build; the Android patcher and release
+  artifacts are exercised in CI. **On-device runtime validation is still pending**.
+- Only the `addons/metamod` + `addons/amxmodx` configs shipped on the `amxx-addons` branch are
+  injected; user modifications made inside an already-patched APK may be overwritten on repatch.
+- 32-bit `.amxx` plugins are intentionally rejected by the 64-bit core.
+- arm32/x86 APKs are refused by the patcher with a clear error.

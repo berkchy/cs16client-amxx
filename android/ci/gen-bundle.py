@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Pack the CI build output into release bundle artifacts.
 
-  gen-bundle.py <libdir> <out-bundle.zip> [<pluginsdir> <out-plugins.zip>]
+  gen-bundle.py <libdir> <out-bundle.zip> [<pluginsdir> <out-plugins.zip> [<addons-dir>]]
 
 The bundle manifest schema mirrors com.pickle.patcher.lib.BundleManifest so the
-patched APK injects exactly these payload entries.
+patched APK injects exactly these payload entries. When <addons-dir> is given
+(addons/ checkout from the amxx-addons branch), configs, gamedata and stock
+plugins are folded into the bundle as DEFLATED entries, making the patched APK
+self-contained (works from a vanilla CS16Client APK, not only a pre-AMXX'd one).
 """
 import json
 import os
@@ -19,18 +22,10 @@ MODULES = [
 ]
 
 
-def sha256(path):
-    import hashlib
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for block in iter(lambda: f.read(1 << 16), b""):
-            h.update(block)
-    return h.hexdigest()
-
-
 def main():
     libdir, bundle_out = sys.argv[1], sys.argv[2]
     plugins_dir, plugins_out = (sys.argv[3], sys.argv[4]) if len(sys.argv) > 3 else (None, None)
+    addons_dir = sys.argv[5] if len(sys.argv) > 5 else None
 
     entries = []
     core = os.path.join(libdir, "libamxmodx.so")
@@ -64,16 +59,53 @@ def main():
         else:
             print(f"WARN: missing module {mod}, skipping")
 
+    # Freshly compiled 64-bit plugins (from build-out/plugins) land in the bundle
+    # under amxmodx/plugins/{name}, injected as addons/amxmodx/plugins/{name}.
+    if plugins_dir and os.path.isdir(plugins_dir):
+        for name in sorted(os.listdir(plugins_dir)):
+            if name.endswith(".amxx"):
+                entries.append({
+                    "source": f"amxmodx/plugins/{name}",
+                    "target": f"addons/amxmodx/plugins/{name}",
+                    "method": "DEFLATED",
+                    "required": True,
+                    "description": f"plugin {name}",
+                })
+
+    # Whole addons/ tree (configs, gamedata, stock plugins): the addons checkout
+    # root IS the addons/ dir, so rel paths are bundle sources and the APK target
+    # is "addons/<rel>".
+    addon_sources = set()
+    if addons_dir and os.path.isdir(addons_dir):
+        for root, dirs, files in os.walk(addons_dir):
+            dirs.sort()
+            for f in sorted(files):
+                full = os.path.join(root, f)
+                rel = os.path.relpath(full, addons_dir).replace(os.sep, "/")
+                entries.append({
+                    "source": rel,
+                    "target": f"addons/{rel}",
+                    "method": "DEFLATED",
+                    "required": False,
+                    "description": "addon file",
+                })
+                addon_sources.add(rel)
+
     manifest = {
         "version": VERSION,
         "game": "cs16client",
         "entries": entries,
     }
 
-    with zipfile.ZipFile(bundle_out, "w", zipfile.ZIP_STORED) as z:
+    with zipfile.ZipFile(bundle_out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("bundle.json", json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
         for e in entries:
-            z.write(os.path.join(libdir, os.path.basename(e["source"])), e["source"])
+            if e["source"] in addon_sources:
+                z.write(os.path.join(addons_dir, e["source"]), e["source"])
+            elif e["source"].startswith("amxmodx/plugins/"):
+                z.write(os.path.join(plugins_dir or "", os.path.basename(e["source"])), e["source"])
+            else:
+                z.write(os.path.join(libdir, os.path.basename(e["source"])), e["source"])
 
     print(f"bundle: {bundle_out} ({os.path.getsize(bundle_out)} bytes, {len(entries)} entries)")
 

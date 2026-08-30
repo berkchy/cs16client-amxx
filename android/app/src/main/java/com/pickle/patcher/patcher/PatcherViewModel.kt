@@ -66,11 +66,9 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
 
     val hasCachedBundle: Boolean get() = bundleProvider.hasCachedBundle()
 
-    val repo = "cloudsoft/cs16-amxx"   // TODO: point to the actual GitHub repo of this project
+    val repo = "berkchy/cs16client-amxx"
 
     private val workDir = File(app.getExternalFilesDir(null) ?: app.cacheDir, "patcher")
-
-    fun setRepo(newRepo: String) = Unit // placeholder if repo becomes runtime-configurable
 
     /** Copies a SAF-picked source APK into app storage. */
     fun pickSource(uri: Uri) {
@@ -83,6 +81,14 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                     out.outputStream().use { output -> input.copyTo(output) }
                 }
                 val info = ZipAnalyzer.analyze(out)
+                if (info.archAbi != "arm64-v8a") {
+                    _patch.value = PatchUiState.Failed(
+                        "This APK has no arm64-v8a libraries (found: ${info.archAbi ?: "none"}). " +
+                            "The patcher only supports arm64 (arm64-v8a) CS16Client builds."
+                    )
+                    _receivedSource.value = null
+                    return@launch
+                }
                 _source.value = SourceInfo(name, out.length(), info.entryCount)
                 _receivedSource.value = out
             } catch (t: Throwable) {

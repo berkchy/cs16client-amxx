@@ -53,16 +53,30 @@ data class ExcludeRule(
     val exact: List<String> = emptyList(),
 ) {
     companion object {
-        /** Default exclusions mirror the manual flow: old amxx libs are pruned before adding. */
+        /**
+         * Default exclusions: the old AMXX/metamod libs (core + 11 module libs) and any stale
+         * signature block. Only those targets are pruned; the game's own native libs
+         * (lib/arm64-v8a/libxash*.so, libSDL*.so, ...) are never touched, so the patched
+         * APK keeps its engine intact.
+         */
         val DEFAULT = ExcludeRule(
             prefixes = listOf(
                 "lib/arm64-v8a/libamxmodx.so",
-                "lib/arm64-v8a/lib",       // matches lib<name>_amxx_amd64.so module libs
                 "lib/arm64-v8a/libmetamod.so",
-            ),
-            exact = listOf(
+                "lib/arm64-v8a/libcstrike_amxx_amd64.so",
+                "lib/arm64-v8a/libcsx_amxx_amd64.so",
+                "lib/arm64-v8a/libengine_amxx_amd64.so",
+                "lib/arm64-v8a/libfakemeta_amxx_amd64.so",
+                "lib/arm64-v8a/libfun_amxx_amd64.so",
+                "lib/arm64-v8a/libgeoip_amxx_amd64.so",
+                "lib/arm64-v8a/libjson_amxx_amd64.so",
+                "lib/arm64-v8a/libnvault_amxx_amd64.so",
+                "lib/arm64-v8a/libregex_amxx_amd64.so",
+                "lib/arm64-v8a/libsockets_amxx_amd64.so",
+                "lib/arm64-v8a/libsqlite_amxx_amd64.so",
                 "META-INF/",
             ),
+            exact = emptyList(),
         )
     }
 }

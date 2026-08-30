@@ -1,22 +1,13 @@
 # build output
 build/
 
-# unused separate amxx clone
-cc3/
-
 # archives & logs
 *.tgz
 *.log
-tools/*.o
-tools/shims/*.o
 
 # signing material (create your own, never commit)
 *.keystore
 debug.keystore
-
-# metamod-fwgs build dirs
-metamod-fwgs/build*
-metamod-fwgs/out/
 
 # misc
 *.pyc

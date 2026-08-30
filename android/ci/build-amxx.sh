@@ -1,82 +1,95 @@
 #!/usr/bin/env bash
 #
 # Cross-compiles the CS16Client AMXX core + modules for android arm64 using the
-# Android NDK. Replicates, flag-for-flag, the hand-tuned build that was validated
-# on-device (see the project notes). Produces:
-#   $OUT/lib/arm64-v8a/libamxmodx.so
-#   $OUT/lib/arm64-v8a/lib<name>_amxx_amd64.so   (11 modules)
-#   $OUT/plugins/*.amxx                          (compiled from ./plugins-src, if any)
+# Android NDK, from CLEAN upstream sources:
+#   - alliedmodders/amxmodx@master   (rolling 1.10)
+#   - Bots-United/metamod-p@master   (aarch64 port patch)
+#   - FWGS/hlsdk-portable@master
 #
-#   usage: ci/build-amxx.sh <amxx-src-root> <ndk-root> <out-dir> [plugins-src]
+# All build customizations live as patch files under <repo>/patches/ and are
+# applied here; nothing is vendored into the repository.
+#
+# Produces:
+#   $OUT/lib/arm64-v8a/libamxmodx.so
+#   $OUT/lib/arm64-v8a/libmetamod.so                        (metamod-p, aarch64)
+#   $OUT/lib/arm64-v8a/lib<name>_amxx_amd64.so              (11 modules)
+#   $OUT/plugins/*.amxx                                     (64-bit cells, from plugins-src)
+#
+#   usage: ci/build-amxx.sh <src-root> <ndk-root> <out-dir> [plugins-src]
 #
 set -euo pipefail
 
 SBIN=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO_ROOT=$(cd "$SBIN/../.." && pwd)
+PATCHES="$REPO_ROOT/patches"
+
 SRC=$1
 NDK=$2
 OUT=$3
 PLUGINS_SRC=${4:-}
 
+AMXX_REPO=https://github.com/alliedmodders/amxmodx.git
+METAMOD_REPO=https://github.com/Bots-United/metamod-p.git
+
+mkdir -p "$SRC" "$OUT/lib/arm64-v8a" "$OUT/plugins"
+
+# ------------------------------------------------------------------ sources
+fetch() {
+  local name=$1 url=$2 recurse=${3:-}
+  if [ ! -d "$SRC/$name/.git" ]; then
+    echo "== fetching $name =="
+    if [ "$recurse" = yes ]; then
+      git clone -q --depth 1 --recurse-submodules --shallow-submodules "$url" "$SRC/$name"
+    else
+      git clone -q --depth 1 "$url" "$SRC/$name"
+    fi
+    if [ -f "$SRC/$name/.gitmodules" ] && [ "$recurse" != yes ]; then
+      true # extra submodules (eg. hlsdk vgui_support) are not needed
+    fi
+  fi
+}
+fetch amxmodx "$AMXX_REPO" yes
+fetch metamod-p "$METAMOD_REPO"
+
+apply_patch() {
+  local patch=$1 dir=$2 subdir=${3:-}
+  local target="$dir/$subdir"
+  local mark="$target/.applied-$(basename "$patch")"
+  if [ -f "$mark" ]; then
+    echo "   patch already applied: $(basename "$patch")"
+    return 0
+  fi
+  (cd "$target" && git apply --check "$patch")
+  (cd "$target" && git apply "$patch")
+  touch "$mark"
+  echo "   patched: $(basename "$patch")"
+}
+
+apply_patch "$PATCHES/amxmodx-pawncc-64bit.patch"        "$SRC/amxmodx"
+apply_patch "$PATCHES/amxmodx-android-load-CModule.patch" "$SRC/amxmodx"
+apply_patch "$PATCHES/amxmodx-android-load-modules.patch" "$SRC/amxmodx"
+apply_patch "$PATCHES/amxmodx-CDetour-cell.diff"          "$SRC/amxmodx"
+apply_patch "$PATCHES/amxmodx-64bit-cell-casts.diff"       "$SRC/amxmodx"
+apply_patch "$PATCHES/amxmodx-memtools-dlfcn.diff"         "$SRC/amxmodx"
+apply_patch "$PATCHES/amxmodx-amtl-64bit.diff"             "$SRC/amxmodx" "public/amtl"
+apply_patch "$PATCHES/metamod-p-aarch64.patch"            "$SRC/metamod-p"
+
+# ----------------------------------------------------------------- toolchain
 HOST=$(uname -s | tr 'A-Z' 'a-z')
 if [ "$HOST" = darwin ]; then HOST=mac; fi
-
-# The fork (berkchy/cs16client-amxx@amxx-addons) omits stable public sources
-# (MemoryUtils, CDetour, resdk, various headers) — they are gitignored there.
-# Vendor copies live under modsrc-amxx/ inside this repo.
-REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
-VENDOR="$REPO_ROOT/modsrc-amxx"
-if [ -d "$VENDOR/public/memtools" ]; then
-  mkdir -p "$SRC/amxmodx/public/memtools" "$SRC/amxmodx/public/resdk" "$SRC/amxmodx/public/amtl" "$SRC/amxmodx/public/sdk"
-  cp -r "$VENDOR/public/memtools/"* "$SRC/amxmodx/public/memtools/"
-  cp -r "$VENDOR/public/resdk/"* "$SRC/amxmodx/public/resdk/"
-  cp -r "$VENDOR/public/amtl/"* "$SRC/amxmodx/public/amtl/"
-  cp -r "$VENDOR/public/sdk/"* "$SRC/amxmodx/public/sdk/"
-fi
-for f in "$VENDOR/public/"*.h; do
-  [ -f "$f" ] && cp -f "$f" "$SRC/amxmodx/public/$(basename "$f")"
-done
-for d in common dlls engine game_shared public pm_shared; do
-  if [ -d "$VENDOR/hlsdk/$d" ]; then
-    mkdir -p "$SRC/hlsdk/$d"
-    cp -r "$VENDOR/hlsdk/$d/"* "$SRC/hlsdk/$d/"
-  fi
-done
-if [ -d "$VENDOR/metamod-hl1/metamod" ]; then
-  mkdir -p "$SRC/metamod-hl1/metamod"
-  cp -r "$VENDOR/metamod-hl1/metamod/"* "$SRC/metamod-hl1/metamod/"
-fi
-find "$VENDOR/modules" -name 'moduleconfig.h' 2>/dev/null | while read f; do
-  rel="${f#$VENDOR/modules/}"
-  mkdir -p "$(dirname "$SRC/amxmodx/modules/$rel")"
-  cp -f "$f" "$SRC/amxmodx/modules/$rel"
-done
-if [ -d "$VENDOR/modules" ]; then
-  find "$VENDOR/modules" -maxdepth 1 -type d | while read d; do
-    modname=$(basename "$d")
-    [ "$modname" = "modules" ] && continue
-    mkdir -p "$SRC/amxmodx/modules/$modname"
-    cp -r "$VENDOR/modules/$modname/"* "$SRC/amxmodx/modules/$modname/" 2>/dev/null
-  done
-fi
-if [ -d "$VENDOR/third_party" ]; then
-  mkdir -p "$SRC/amxmodx/third_party"
-  cp -r "$VENDOR/third_party/"* "$SRC/amxmodx/third_party/"
-fi
-for d in compiler amxmodx; do
-  if [ -d "$VENDOR/$d" ]; then
-    mkdir -p "$SRC/amxmodx/$d"
-    cp -r "$VENDOR/$d/"* "$SRC/amxmodx/$d/"
-  fi
-done
 
 TC=$NDK/toolchains/llvm/prebuilt/$HOST-x86_64/bin
 TARGET=aarch64-linux-android24
 CC=$TC/$TARGET-clang
 CXX=$TC/$TARGET-clang++
+HOSTCC=${HOSTCC:-gcc}
+HOSTCXX=${HOSTCXX:-g++}
 SYSROOT_LIB=$NDK/toolchains/llvm/prebuilt/$HOST-x86_64/sysroot/usr/lib/aarch64-linux-android
 
 AMXX=$SRC/amxmodx
-mkdir -p "$OUT/lib/arm64-v8a" "$OUT/plugins"
+HLSDK=$REPO_ROOT/android/hlsdk
+METAMOD=$SRC/metamod-p/metamod
+MMHLSDK=$SRC/metamod-p/hlsdk
 
 # ---------------------------------------------------------------- flags
 DEFS=(
@@ -106,9 +119,9 @@ INC=(
   -I"$AMXX/third_party" -I"$AMXX/third_party/hashing" -I"$AMXX/third_party/zlib"
   -I"$AMXX/third_party/sqlite"   -I"$AMXX/third_party/utf8rewind"
   -I"$AMXX/amxmodx"
-  -I"$SRC/metamod-hl1/metamod"
-  -I"$SRC/hlsdk/common" -I"$SRC/hlsdk/dlls" -I"$SRC/hlsdk/engine"
-  -I"$SRC/hlsdk/game_shared" -I"$SRC/hlsdk/public" -I"$SRC/hlsdk/pm_shared"
+  -I"$METAMOD"
+  -I"$HLSDK/common" -I"$HLSDK/dlls" -I"$HLSDK/engine"
+  -I"$HLSDK/game_shared" -I"$HLSDK/public" -I"$HLSDK/pm_shared"
 )
 
 TMP=$(mktemp -d)
@@ -164,7 +177,7 @@ relink "$OUT/lib/arm64-v8a/libamxmodx.so" "$TMP"/core/*.o
 echo "   core -> $(ls -l "$OUT/lib/arm64-v8a/libamxmodx.so" | awk '{print $5}') bytes"
 
 # ------------------------------------------------------------------ pcre
-# regex module needs a static arm64 pcre; the repo only ships linux/mac/win
+# regex module needs a static arm64 pcre; upstream only ships linux/mac/win
 # prebuilts, so build it here (deterministic, source-based).
 PCRE_VER=8.45
 if [[ ! -f "$TMP/libpcre.a" ]]; then
@@ -184,30 +197,37 @@ fi
 PCRE_A="$TMP/pcre-inst/lib/libpcre.a"
 
 # ------------------------------------------------------------- metamod
-echo "== building metamod =="
-METAMOD="$SRC/metamod-hl1/metamod"
-METAMOD_INC=(
+# metamod-p: aarch64 (patches/metamod-p-aarch64.patch). Statically links libc++
+# so no libc++_shared.so needs to ship in the bundle.
+echo "== building metamod (metamod-p, aarch64) =="
+MM_INC=(
   -I"$METAMOD"
-  -I"$SRC/hlsdk/common" -I"$SRC/hlsdk/dlls" -I"$SRC/hlsdk/engine"
-  -I"$SRC/hlsdk/game_shared" -I"$SRC/hlsdk/public" -I"$SRC/hlsdk/pm_shared"
+  -I"$MMHLSDK/engine" -I"$MMHLSDK/common" -I"$MMHLSDK/pm_shared" -I"$MMHLSDK/dlls" -I"$MMHLSDK"
 )
-METAMOD_DEFS=(
-  -DMETAMOD_CORE
+MM_DEFS=(
+  -D__METAMOD_BUILD__
   -Dstricmp=strcasecmp
   -Dstrnicmp=strncasecmp
   -D_snprintf=snprintf
   -D__BYTE_ORDER=__LITTLE_ENDIAN
 )
-echo "   METAMOD_DEFS: ${METAMOD_DEFS[*]}"
-for f in "$METAMOD"/*.cpp; do
-  [ -e "$f" ] || continue
-  base=$(basename "$f")
+for f in \
+  api_hook.cpp api_info.cpp commands_meta.cpp conf_meta.cpp dllapi.cpp \
+  engine_api.cpp engineinfo.cpp game_support.cpp game_autodetect.cpp h_export.cpp \
+  linkgame.cpp linkplug.cpp log_meta.cpp meta_eiface.cpp metamod.cpp mlist.cpp \
+  mplayer.cpp mplugin.cpp mreg.cpp mutil.cpp osdep.cpp osdep_p.cpp \
+  reg_support.cpp sdk_util.cpp studioapi.cpp support_meta.cpp vdate.cpp \
+  osdep_linkent_linux.cpp osdep_detect_gamedll_linux.cpp; do
+  file="$METAMOD/$f"
+  [ -e "$file" ] || continue
+  base=$(basename "$file")
   obj="$TMP/metamod/$base.o"
   mkdir -p "$(dirname "$obj")"
-  echo "   compiling $base"
-  "$CXX" "${FLAGS[@]}" "${CXXFLAGS[@]}" -Wno-reserved-user-defined-literal "${METAMOD_INC[@]}" "${METAMOD_DEFS[@]}" -c "$f" -o "$obj" 2>&1 || true
+  "$CXX" "${FLAGS[@]}" -std=gnu++98 -Wno-reserved-user-defined-literal "${CXXFLAGS[@]}" \
+    "${MM_INC[@]}" "${MM_DEFS[@]}" -c "$file" -o "$obj"
 done
-relink "$OUT/lib/arm64-v8a/libmetamod.so" "$TMP"/metamod/*.o
+"$CXX" -fPIC -O2 -shared -static-libstdc++ -o "$OUT/lib/arm64-v8a/libmetamod.so" \
+  "$TMP"/metamod/*.o -ldl -lm
 echo "   metamod -> $(ls -l "$OUT/lib/arm64-v8a/libmetamod.so" | awk '{print $5}') bytes"
 
 # ----------------------------------------------------------------- modules
@@ -288,33 +308,54 @@ build_module csx cstrike/csx "" "" \
   "$SYSROOT_LIB/libc++abi.a" -ldl -lm -pthread
 
 # ----------------------------------------------------------------- plugins
-echo "== building host pawncc =="
-PAWNCC_OK=false
-if [ -f "$AMXX/compiler/libpc300/CMakeLists.txt" ]; then
-  LIBPC_BUILD="$TMP/libpc300"
-  mkdir -p "$LIBPC_BUILD" && cd "$LIBPC_BUILD"
-  cmake "$AMXX/compiler/libpc300" -DCMAKE_BUILD_TYPE=Release >/dev/null 2>&1 && \
-    make -j"$(nproc)" >/dev/null 2>&1 && PAWNCC_OK=true
-fi
-if [ "$PAWNCC_OK" = true ]; then
-  AMXXPC_SRC="$AMXX/compiler/amxxpc"
-  g++ -O2 -std=c++14 -I"$AMXX/compiler/libpc300" -I"$AMXXPC_SRC" \
-    -o "$TMP/amxxpc" "$AMXXPC_SRC"/amxxpc.cpp "$AMXXPC_SRC"/Binary.cpp \
-    "$LIBPC_BUILD/libpawnc.so" 2>/dev/null && AMXXPC="$TMP/amxxpc" || PAWNCC_OK=false
-fi
-if [ "$PAWNCC_OK" = false ]; then
-  echo "   pawncc build failed, skipping plugin compilation"
-  AMXXPC=""
+# Host pawncc. libpc300 is compiled from source with 64-bit PAWN cells
+# (PAWN_CELL_SIZE=64) and exported as Compile64; the amxxpc driver prefers
+# Compile64 and writes cellsize = sizeof(cell), so plugins are 64-bit and
+# loadable by the 64-bit AMXX core. NOTE: the CMakeLists of libpc300 is stale
+# (missing files / cmake_minimum_required), so we compile it by hand.
+echo "== building host pawncc (64-bit cells) =="
+LIBPC="$AMXX/compiler/libpc300"
+# -DLINUX turns on sclinux.h (stricmp/strnicmp, unistd.h) in the libpc300
+# sources. Upstream has no compiler/linux/{prefix.c,prefix.h} (the fork vendored
+# it), and sc1.c only pulls <prefix.h> under that same guard, so our
+# amxmodx-pawncc-64bit.patch drops the prefix.h include.
+PC_BUILD="$TMP/libpc300"
+mkdir -p "$PC_BUILD/obj"
+PC_COMMON="-std=gnu17 -O2 -fPIC -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DLINUX \
+  -DHAVE_UNISTD_H -DHAVE_INTTYPES_H -DHAVE_STDINT_H -DHAVE_ALLOCA_H -I$LIBPC"
+for f in "$LIBPC"/sc*.c "$LIBPC"/libpawnc.c; do
+  [ -e "$f" ] || continue
+  extra=""
+  [[ "$(basename "$f")" == sc1.c ]] && extra="-DNO_MAIN"
+  "$HOSTCC" $PC_COMMON -DPAWNC_DLL $extra -c "$f" -o "$PC_BUILD/obj/$(basename "${f%.c}").o"
+done
+"$HOSTCC" -shared -o "$PC_BUILD/amxxpc32.so" "$PC_BUILD"/obj/*.o
+cp "$PC_BUILD/amxxpc32.so" "$PC_BUILD/amxxpc.so"
+
+PAWNCC=""
+if command -v "$HOSTCXX" >/dev/null 2>&1 || [ -x "$HOSTCXX" ]; then
+  "$HOSTCXX" -O2 -std=c++14 -I"$LIBPC" -I"$AMXX/compiler/amxxpc" \
+    -o "$PC_BUILD/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp "$AMXX/compiler/amxxpc"/Binary.cpp
+  PAWNCC="$PC_BUILD/amxxpc"
+else
+  echo "   host $HOSTCXX not found, skipping plugin compilation"
 fi
 
-if [[ -n "$PLUGINS_SRC" && -d "$PLUGINS_SRC" && -n "$AMXXPC" ]]; then
-  echo "== compiling plugins =="
+if [[ -n "$PAWNCC" && -n "$PLUGINS_SRC" && -d "$PLUGINS_SRC" ]]; then
+  echo "== compiling plugins (64-bit cells) =="
+  extra_inc=(-i"$AMXX/plugins/include")
+  [ -d "$PLUGINS_SRC/include" ] && extra_inc+=(-i"$PLUGINS_SRC/include")
   for f in "$PLUGINS_SRC"/*.sma; do
     [ -e "$f" ] || continue
     echo "   $(basename "$f")"
-    "$AMXXPC" -i"$AMXX/plugins/include" -i"$PLUGINS_SRC/include" -o"$OUT/plugins/$(basename "${f%.sma}.amxx")" "$f" >/dev/null
+    ( cd "$PC_BUILD" && "$PAWNCC" "${extra_inc[@]}" \
+        -o"$OUT/plugins/$(basename "${f%.sma}.amxx")" "$f" >/dev/null )
+    if [[ $? -ne 0 ]]; then
+        echo "   FAILED: $f" >&2
+        exit 1
+    fi
   done
 fi
 
 echo "ALL_BUILT"
-ls -l "$OUT/lib/arm64-v8a/" "$OUT/plugins"/
+ls -l "$OUT/lib/arm64-v8a/" "$OUT/plugins"

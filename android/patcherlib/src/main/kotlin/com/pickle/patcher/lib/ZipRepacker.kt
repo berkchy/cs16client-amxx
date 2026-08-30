@@ -13,8 +13,9 @@ import java.util.zip.Deflater
  *
  * Copies every surviving entry from the source APK verbatim (stored entries as raw bytes,
  * deflated entries as their exact compressed stream), prunes entries matched by
- * [ExcludeRule], injects [Bundle] payload entries, and 4-byte aligns every stored entry
- * (mirrors `zipalign -f 4` / the manual `zip -d` + `zip -0` flow).
+ * [ExcludeRule], injects [Bundle] payload entries, and aligns every stored entry
+ * (mirrors `zipalign -f 4`, with native libs under `lib/**` aligned to 16 KB for
+ * Android 15+ / 16 KB-page devices).
  *
  * Output is an *unsigned* but fully valid, aligned APK ready for apksig signing.
  */
@@ -81,10 +82,13 @@ object ZipRepacker {
                     var localOffset = raf.filePointer
                     var extraLen = 0
                     if (method == 0) {
-                        // pad so dataOffset is 4-aligned (zipalign behaviour)
+                        // zipalign behaviour: native libs (lib/**) must be 16 KB
+                        // aligned for Android 15+ / 16 KB-page devices; everything
+                        // else just needs 4-byte alignment.
+                        val unit = if (name.startsWith("lib/")) 16384 else 4
                         val base = localOffset + 30 + name.length
-                        val rem = (base % 4).toInt()
-                        extraLen = if (rem == 0) 0 else (4 - rem)
+                        val rem = (base % unit).toInt()
+                        extraLen = if (rem == 0) 0 else (unit - rem)
                         alignPadBytes += extraLen
                         alignedStored++
                     }

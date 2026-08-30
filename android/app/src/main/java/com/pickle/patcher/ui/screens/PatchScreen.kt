@@ -131,7 +131,7 @@ private fun SourceApkCard(vm: PatcherViewModel) {
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            "${source!!.sizeBytes.mb()} · ${source!!.entryCount} girdi",
+                            "${source!!.sizeBytes.mb()} · ${source!!.entryCount} entries",
                             style = MaterialTheme.typography.bodyMedium,
                             color = OnDarkMuted,
                         )

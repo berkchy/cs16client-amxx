@@ -30,34 +30,6 @@ jobs:
           git fetch origin amxx-addons
           git checkout origin/amxx-addons -- addons/
 
-      - name: Copy vendored sources into AMXX tree
-        shell: bash
-        run: |
-          VENDOR="$GITHUB_WORKSPACE/android/modsrc-amxx"
-          SRC="$GITHUB_WORKSPACE/src/amxmodx"
-          for f in "$VENDOR/public/"*.h; do
-            [ -f "$f" ] && cp -f "$f" "$SRC/public/$(basename "$f")"
-          done
-          for d in memtools resdk amtl sdk; do
-            [ -d "$VENDOR/public/$d" ] && rm -rf "$SRC/public/$d" && cp -r "$VENDOR/public/$d" "$SRC/public/$d"
-          done
-          for d in common dlls engine game_shared public pm_shared; do
-            [ -d "$VENDOR/hlsdk/$d" ] && rm -rf "$SRC/../hlsdk/$d" && cp -r "$VENDOR/hlsdk/$d" "$SRC/../hlsdk/$d"
-          done
-          [ -d "$VENDOR/metamod-hl1/metamod" ] && rm -rf "$SRC/../metamod-hl1/metamod" && cp -r "$VENDOR/metamod-hl1/metamod" "$SRC/../metamod-hl1/metamod"
-          [ -d "$VENDOR/third_party" ] && rm -rf "$SRC/third_party" && cp -r "$VENDOR/third_party" "$SRC/third_party"
-          for d in compiler amxmodx; do
-            [ -d "$VENDOR/$d" ] && rm -rf "$SRC/$d" && cp -r "$VENDOR/$d" "$SRC/$d"
-          done
-          find "$VENDOR/modules" -name 'moduleconfig.h' 2>/dev/null | while read f; do
-            rel="${f#$VENDOR/modules/}"
-            mkdir -p "$(dirname "$SRC/modules/$rel")"
-            cp -f "$f" "$SRC/modules/$rel"
-          done
-          for d in "$VENDOR/modules/"*/; do
-            [ -d "$d" ] && modname=$(basename "$d") && rm -rf "$SRC/modules/$modname" && cp -r "$d" "$SRC/modules/$modname"
-          done
-
       - name: Set up Android SDK/NDK tooling
         uses: android-actions/setup-android@v3
       - name: Install NDK r25c
@@ -72,8 +44,12 @@ jobs:
       - name: Cross-compile core + modules + plugins
         shell: bash
         run: |
+          # Source is fetched from upstream by build-amxx.sh (alliedmodders
+          # amxmodx + Bots-United metamod-p) and customized by ./patches/;
+          # android/hlsdk (vendored fork SDK) is used directly, so no overlay
+          # copy step is needed.
           bash ./android/ci/build-amxx.sh "$GITHUB_WORKSPACE/src" "$ANDROID_NDK_HOME" \
-            "$GITHUB_WORKSPACE/build-out" "$GITHUB_WORKSPACE/plugins-src"
+            "$GITHUB_WORKSPACE/build-out" "$GITHUB_WORKSPACE/android/plugins-src"
 
       - name: Package release bundles
         shell: bash
@@ -82,7 +58,8 @@ jobs:
             "$GITHUB_WORKSPACE/build-out/lib/arm64-v8a" \
             "$GITHUB_WORKSPACE/amxx-bundle.zip" \
             "$GITHUB_WORKSPACE/build-out/plugins" \
-            "$GITHUB_WORKSPACE/amxx-plugins.zip"
+            "$GITHUB_WORKSPACE/amxx-plugins.zip" \
+            "$GITHUB_WORKSPACE/addons"
           cd "$GITHUB_WORKSPACE"
           zip -r amxx-addons.zip addons/ -x '*.git*'
 
@@ -125,6 +102,12 @@ jobs:
         with:
           name: release-bundles
           path: bundles
+
+      - name: Embed bundle into app assets (offline fallback)
+        shell: bash
+        run: |
+          mkdir -p android/app/src/main/assets/bundle
+          cp bundles/amxx-bundle.zip android/app/src/main/assets/bundle/bundle.zip
 
       - name: Generate wrapper & build the patcher APK
         working-directory: android

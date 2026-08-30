@@ -1,7 +1,0 @@
-# Ignore build directories
-build/
-tests/*/obj-*/
-*.pyc
-*.*~
-objdir
-*.o
