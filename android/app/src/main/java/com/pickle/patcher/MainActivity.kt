@@ -4,8 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
@@ -107,16 +105,21 @@ fun PatcherApp(vm: PatcherViewModel) {
             }
         },
     ) { padding ->
-        Crossfade(
-            targetState = currentRoute,
+        NavHost(
+            navController = nav,
+            startDestination = Dest.Home.route,
             modifier = Modifier.padding(padding),
-            animationSpec = tween(280),
-        ) { route ->
-            when (route) {
-                Dest.Patch.route -> PatchScreen(vm)
-                Dest.Releases.route -> ReleasesScreen(vm)
-                else -> HomeScreen(vm, onGoToPatch = { nav.navigate(Dest.Patch.route) })
+        ) {
+            composable(Dest.Home.route) {
+                HomeScreen(vm, onGoToPatch = {
+                    nav.navigate(Dest.Patch.route) {
+                        popUpTo(Dest.Home.route) { saveState = true }
+                        launchSingleTop = true
+                    }
+                })
             }
+            composable(Dest.Patch.route) { PatchScreen(vm) }
+            composable(Dest.Releases.route) { ReleasesScreen(vm) }
         }
     }
 }
