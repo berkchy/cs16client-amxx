@@ -11,7 +11,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -25,9 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pickle.patcher.ui.theme.Mint20
@@ -37,41 +34,6 @@ import com.pickle.patcher.ui.theme.Violet30
 import kotlin.math.roundToInt
 
 /** Hero glow behind a big icon — a slowly breathing radial gradient. */
-@Composable
-fun GlowHalo(size: Dp) {
-    val transition = rememberInfiniteTransition(label = "glow")
-    val alpha by transition.animateFloat(
-        initialValue = 0.55f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "glowAlpha",
-    )
-    val scale by transition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "glowScale",
-    )
-    Box(
-        modifier = Modifier.size(size * scale),
-        contentAlignment = Alignment.Center,
-    ) {
-        Canvas(Modifier.matchParentSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Mint80.copy(alpha = 0.5f * alpha), Color.Transparent),
-                ),
-            )
-        }
-    }
-}
-
 @Composable
 fun HeroCard(title: String, subtitle: String, icon: @Composable () -> Unit, onClick: () -> Unit = {}) {
     ElevatedCard(

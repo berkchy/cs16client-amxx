@@ -37,7 +37,6 @@ fun HomeScreen(vm: PatcherViewModel, onGoToPatch: () -> Unit) {
                 .align(Alignment.CenterHorizontally),
             contentAlignment = Alignment.Center,
         ) {
-            GlowHalo(size = 180.dp)
             Box(
                 Modifier
                     .size(124.dp)
@@ -62,11 +61,6 @@ fun HomeScreen(vm: PatcherViewModel, onGoToPatch: () -> Unit) {
 
         Spacer(Modifier.height(20.dp))
 
-        Text(
-            "CS16Client AMXX Helper",
-            style = MaterialTheme.typography.displaySmall,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
         Text(
             "AMX Mod X, bu cihazda derlenmez — her şey GitHub üzerinde derlenir. Sen sadece APK'yı seç, yamala, kur.",
             style = MaterialTheme.typography.bodyLarge,
