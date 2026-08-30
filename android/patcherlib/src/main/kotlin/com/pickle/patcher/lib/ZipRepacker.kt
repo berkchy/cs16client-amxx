@@ -14,10 +14,10 @@ import java.util.zip.Deflater
  * Copies every surviving entry from the source APK verbatim (stored entries as raw bytes,
  * deflated entries as their exact compressed stream), prunes entries matched by
  * [ExcludeRule], injects [Bundle] payload entries, and aligns every stored entry
- * (mirrors `zipalign -f 4`, with native libs under `lib/**` aligned to 16 KB for
+ * (mirrors zipalign -f 4, with native libs aligned to 16 KB for
  * Android 15+ / 16 KB-page devices).
  *
- * Output is an *unsigned* but fully valid, aligned APK ready for apksig signing.
+ * Output is an unsigned but fully valid, aligned APK ready for apksig signing.
  */
 object ZipRepacker {
 
