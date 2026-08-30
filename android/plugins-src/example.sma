@@ -1,5 +1,4 @@
 #include <amxmodx>
-#include <amxmodxmeta>
 #include <engine>
 
 #define PLUGIN_NAME "CS16 AMXX Example"

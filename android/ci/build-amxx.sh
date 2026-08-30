@@ -66,6 +66,7 @@ apply_patch() {
 }
 
 apply_patch "$PATCHES/amxmodx-pawncc-64bit.patch"        "$SRC/amxmodx"
+apply_patch "$PATCHES/amxmodx-libpawnc-console.patch"      "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-android-load-CModule.patch" "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-android-load-modules.patch" "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-CDetour-cell.diff"          "$SRC/amxmodx"
@@ -371,9 +372,12 @@ if [[ -n "$PAWNCC" && -n "$PLUGINS_SRC" && -d "$PLUGINS_SRC" ]]; then
   for f in "$PLUGINS_SRC"/*.sma; do
     [ -e "$f" ] || continue
     local_out="$OUT/plugins/$(basename "${f%.sma}.amxx")"
-    if ! out=$( ( cd "$PC_BUILD" && LC_ALL=C.UTF-8 LANG=C.UTF-8 stdbuf -oL -eL \
-             "$PAWNCC" "${extra_inc[@]}" -o"$local_out" "$f" ) 2>&1 ); then
-      rc=$?
+    set +e
+    out=$( ( cd "$PC_BUILD" && LC_ALL=C.UTF-8 LANG=C.UTF-8 stdbuf -oL -eL \
+             "$PAWNCC" "${extra_inc[@]}" -o"$local_out" "$f" ) 2>&1 )
+    rc=$?
+    set -e
+    if [ $rc -ne 0 ]; then
       echo "   FAILED: $f (rc=$rc)" >&2
       printf '%s\n' "$out" >&2
       # lib-only sanity (same lib, no driver): does Compile64 succeed alone?
