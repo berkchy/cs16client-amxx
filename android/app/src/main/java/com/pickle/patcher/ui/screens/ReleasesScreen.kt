@@ -2,6 +2,7 @@ package com.pickle.patcher.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudDownload
@@ -48,7 +49,7 @@ fun ReleasesScreen(vm: PatcherViewModel) {
             Column(Modifier.padding(18.dp)) {
                 note?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.CloudDownload, tint = Mint80)
+                        Icon(Icons.Filled.CloudDownload, contentDescription = null, tint = Mint80)
                         Spacer(Modifier.width(8.dp))
                         Text("$it", style = MaterialTheme.typography.titleMedium, maxLines = 2)
                     }

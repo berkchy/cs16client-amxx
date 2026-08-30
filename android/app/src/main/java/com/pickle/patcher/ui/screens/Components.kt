@@ -16,6 +16,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pickle.patcher.ui.theme.Mint20
@@ -70,36 +73,41 @@ fun GlowHalo(size: Dp) {
 }
 
 @Composable
-fun HeroCard(title: String, subtitle: String, icon: @Composable () -> Unit, onClick: (() -> Unit)? = null) {
+fun HeroCard(title: String, subtitle: String, icon: @Composable () -> Unit, onClick: () -> Unit = {}) {
     ElevatedCard(
         onClick = onClick,
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
-        Column(Modifier.padding(22.dp)) {
-            Box(Modifier.align(Alignment.CenterHorizontally)) {
-                Box(
-                    Modifier
-                        .size(92.dp)
-                        .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(Mint20, Violet30))),
-                    contentAlignment = Alignment.Center,
-                ) { icon() }
-            }
-            Spacer(Modifier.height(18.dp))
-            Text(
-                title,
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodyLarge,
-                color = OnDarkMuted,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
+        HeroCardBody(title, subtitle, icon)
+    }
+}
+
+@Composable
+private fun HeroCardBody(title: String, subtitle: String, icon: @Composable () -> Unit) {
+    Column(Modifier.padding(22.dp)) {
+        Box(Modifier.align(Alignment.CenterHorizontally)) {
+            Box(
+                Modifier
+                    .size(92.dp)
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(Mint20, Violet30))),
+                contentAlignment = Alignment.Center,
+            ) { icon() }
         }
+        Spacer(Modifier.height(18.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            subtitle,
+            style = MaterialTheme.typography.bodyLarge,
+            color = OnDarkMuted,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
     }
 }
 

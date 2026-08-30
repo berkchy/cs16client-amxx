@@ -356,7 +356,7 @@ private fun PatchResult(report: ApkPatcher.PatchReport, onInstall: () -> Unit) {
                         "Çıktı: ${report.signedSizeBytes.mb()} · kaynak ${report.sourceName}\n" +
                                 "Eklenen giriş: ${report.addedEntries.size} · korunan: ${report.keptCount} · hizalı: ${report.alignedStored}\n" +
                                 "resources.arsc: ${if (report.arscStored) "stored" else "sıkışmış"} / ${if (report.arscAligned) "hizalı" else "HİZASIZ"}\n" +
-                                "İmza: ${if (v.verified) "doğrulandı (v1=${v.usedV1} v2=${v.usedV2})" else "DOĞRULANAMADI"}",
+                                "İmza: ${if (v != null && v.verified) "doğrulandı (v1=${v.usedV1} v2=${v.usedV2})" else "DOĞRULANAMADI"}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = OnDark,
                     )
