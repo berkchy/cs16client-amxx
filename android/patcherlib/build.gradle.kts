@@ -9,7 +9,7 @@ java {
 }
 
 dependencies {
-    implementation("com.android.tools.build:apksig:8.5.2")
+    implementation("com.android.tools.build:apksig:8.13.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     testImplementation(kotlin("test"))

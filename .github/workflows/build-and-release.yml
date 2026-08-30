@@ -88,6 +88,14 @@ jobs:
       - name: Configure Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android SDK platform & build tools
+        shell: bash
+        run: |
+          SDKMGR=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+          [ -x "$SDKMGR" ] || SDKMGR=$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager 2>/dev/null | sort -V | tail -1)
+          echo "y" | "$SDKMGR" --install "platforms;android-36" "build-tools;35.0.0"
+          yes | "$SDKMGR" --licenses
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
@@ -109,11 +117,9 @@ jobs:
           mkdir -p android/app/src/main/assets/bundle
           cp bundles/amxx-bundle.zip android/app/src/main/assets/bundle/bundle.zip
 
-      - name: Generate wrapper & build the patcher APK
+      - name: Build the patcher APK
         working-directory: android
-        run: |
-          gradle wrapper --gradle-version 8.9 --distribution-type bin
-          ./gradlew :app:assembleRelease --stacktrace
+        run: ./gradlew --no-daemon :app:assembleRelease --stacktrace
 
       - name: Upload app APK artifact
         uses: actions/upload-artifact@v4
