@@ -54,7 +54,7 @@ BOOL WINAPI DllMain(HINSTANCE /* hinstDLL */, DWORD fdwReason,
     }
 	return(TRUE);
 }
-#elif defined(linux) || defined(__APPLE__)
+#elif defined(linux) || defined(__linux__) || defined(__APPLE__)
 // Linux routines to correspond to ATTACH and DETACH cases above.  These
 // aren't required by linux, but are included here for completeness, and
 // just in case we come across a need to do something at dll load or
@@ -100,7 +100,7 @@ void WINAPI GiveFnptrsToDll(enginefuncs_t *pengfuncsFromEngine,
 }
 
 // Avoid linking to libstdc++
-#if defined(linux)
+#if defined(linux) || defined(__linux__)
 extern "C" void __cxa_pure_virtual(void)
 {
 }

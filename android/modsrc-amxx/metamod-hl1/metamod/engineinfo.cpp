@@ -12,7 +12,7 @@
 #  define _WINSPOOL_H	
 #  include <windows.h>
 #  include <winnt.h>     // Header structures
-#elif defined(linux) 
+#elif defined(linux) || defined(__linux__) 
 #  ifndef _GNU_SOURCE
 #    define _GNU_SOURCE
 #  endif
@@ -73,7 +73,7 @@ bool EngineInfo::check_for_engine_module( const char* _pName )
 	}
 	m_type[size] = '\0';
 
-#elif defined(linux)
+#elif defined(linux) || defined(__linux__)
 
 	const char* pType;
 
@@ -255,7 +255,7 @@ void EngineInfo::set_code_range( unsigned char* _pBase, PIMAGE_NT_HEADERS _pNThd
 }
 
 
-#elif defined(linux) /* _WIN32 */
+#elif defined(linux) || defined(__linux__) /* _WIN32 */
 
 
 int EngineInfo::phdr_elfhdr( void* _pElfHdr )
@@ -461,7 +461,7 @@ int EngineInfo::initialise( enginefuncs_t* _pFuncs )
 		ret = vac_pe_approx( _pFuncs );
 	}
 
-#elif defined(linux) /* _WIN32 */
+#elif defined(linux) || defined(__linux__) /* _WIN32 */
 	
 	// If we have no reference pointer to start from we can only try to use
 	// the r_debug symbol.

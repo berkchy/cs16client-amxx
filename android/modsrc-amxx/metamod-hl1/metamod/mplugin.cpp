@@ -446,7 +446,7 @@ char *MPlugin::resolve_suffix(char *path) {
 
 #ifdef _WIN32
 	snprintf(buf, sizeof(buf), "%s.dll", path);
-#elif defined(linux)
+#elif defined(linux) || defined(__linux__)
 	snprintf(buf, sizeof(buf), "%s.so", path);
 #elif defined(__APPLE__)
 	snprintf(buf, sizeof(buf), "%s.dylib", path);

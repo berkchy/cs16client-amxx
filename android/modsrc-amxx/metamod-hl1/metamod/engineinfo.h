@@ -13,7 +13,7 @@
 
 #ifdef _WIN32
 typedef void* MemAddr;
-#elif defined(linux)
+#elif defined(linux) || defined(__linux__)
 #  include <link.h>           // ElfW(Addr/Phdr) macros
 typedef void* MemAddr;
 #else
@@ -71,7 +71,7 @@ class EngineInfo
         // pBase.
         void set_code_range( unsigned char* pBase, PIMAGE_NT_HEADERS pNThdr );
 
-#elif defined(linux)
+#elif defined(linux) || defined(__linux__)
         
         // Set info using the Programheader found via r_debug struct.
         // Returns 0 on success, error code on failure.

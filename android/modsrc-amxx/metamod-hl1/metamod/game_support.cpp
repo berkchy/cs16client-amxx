@@ -138,7 +138,7 @@ mBOOL setup_gamedll(gamedll_t *gamedll) {
 	if((known=lookup_game(gamedll->name))) {
 #ifdef _WIN32
 		knownfn=strdup(known->win_dll);
-#elif defined(linux)
+#elif defined(linux) || defined(__linux__)
 		knownfn=strdup(known->linux_so);
 #elif defined(__APPLE__)
 		knownfn=strdup(known->osx_dylib);
