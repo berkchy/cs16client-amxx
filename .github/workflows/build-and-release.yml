@@ -111,6 +111,8 @@ jobs:
         run: |
           mkdir -p android/app/src/main/assets/keystore
           cp android/debug/patcher-release.p12 android/app/src/main/assets/keystore/debug.p12
+          cp android/debug/debug_key.pem android/app/src/main/assets/keystore/debug_key.pem
+          cp android/debug/debug_cert.pem android/app/src/main/assets/keystore/debug_cert.pem
 
       - name: Download release bundles (for app fallback)
         uses: actions/download-artifact@v4

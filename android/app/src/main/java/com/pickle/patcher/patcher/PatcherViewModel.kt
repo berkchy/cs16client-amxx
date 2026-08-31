@@ -97,6 +97,26 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val workDir = File(app.getExternalFilesDir(null) ?: app.cacheDir, "patcher")
 
+    /**
+     * Loads the bundled signing key. Prefers the PEM pair (PKCS#8 key + X.509 cert)
+     * because [SigningKeystore.loadPem] uses only [KeyFactory]/[CertificateFactory],
+     * which are always available on Android; falls back to the PKCS12 container.
+     */
+    private fun loadSigningKeystore(): SigningKeystore {
+        val assets = app.assets
+        val keyPem = runCatching {
+            assets.open("keystore/debug_key.pem").use { it.readBytes().decodeToString() }
+        }.getOrNull()
+        val certPem = runCatching {
+            assets.open("keystore/debug_cert.pem").use { it.readBytes().decodeToString() }
+        }.getOrNull()
+        if (keyPem != null && certPem != null) {
+            return SigningKeystore.loadPem(keyPem, certPem)
+        }
+        val p12 = assets.open("keystore/debug.p12").use { it.readBytes() }
+        return SigningKeystore.loadBytes(p12)
+    }
+
     /** Copies a SAF-picked source APK into app storage. */
     fun pickSource(uri: Uri) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -157,7 +177,10 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                     BundleState.Downloading(0.1f)
                 }
                 val dest = bundleProvider.cachedBundleFile()
-                ReleaseRepository.download(asset, dest)
+                ReleaseRepository.download(asset, dest) { p ->
+                    // thread-safe; MutableStateFlow.value is atomic
+                    _bundle.value = BundleState.Downloading(p)
+                }
                 val b = Bundle.fromZip(dest.readBytes())
                     ?: throw IOException("Bundle file is corrupted")
                 _releaseNote.value = rel.name.ifBlank { rel.tag_name }
@@ -176,13 +199,11 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
     fun startPatch() {
         val src = _receivedSource.value ?: return
         val b = loadedBundle ?: return
-        val keystoreBytes = runCatching {
-            getApplication<Application>().assets.open("keystore/debug.p12").use { it.readBytes() }
-        }.getOrElse {
-            _patch.value = PatchUiState.Failed("Signing key (debug.p12) is missing")
-            return
-        }
-        val keystore = SigningKeystore.loadBytes(keystoreBytes)
+        val keystore = runCatching { loadSigningKeystore() }
+            .getOrElse {
+                _patch.value = PatchUiState.Failed("Signing key could not be loaded: ${it.message}")
+                return
+            }
         val out = File(workDir, "patched.apk")
 
         viewModelScope.launch(Dispatchers.IO) {

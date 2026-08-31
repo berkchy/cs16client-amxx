@@ -5,23 +5,31 @@ import com.android.apksig.ApkVerifier
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.security.KeyFactory
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.PrivateKey
+import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
+import java.security.spec.PKCS8EncodedKeySpec
+import java.util.Base64
 
 /**
  * Wraps the debug keystore used for all patched APKs (kept stable so the app can be
  * *updated*, not reinstalled, on devices that already run an earlier patched build).
+ *
+ * Two load paths:
+ *  - [load]/[loadBytes]: from a PKCS12 [`KeyStore`] container.
+ *  - [loadPem]: from raw PEM files (PKCS#8 private key + X.509 cert). This is the
+ *    reliable path on Android, where keystore-container parsing can be flaky; it uses
+ *    only [KeyFactory]/[CertificateFactory], which are always available.
  */
 class SigningKeystore(
-    val keyStore: KeyStore,
-    val alias: String,
-    val keyPassword: CharArray,
+    private val privateKeyRef: PrivateKey,
+    private val certificateChainRef: List<X509Certificate>,
 ) {
-    val privateKey: PrivateKey get() = keyStore.getKey(alias, keyPassword) as PrivateKey
-    val certificateChain: List<X509Certificate>
-        get() = keyStore.getCertificateChain(alias).map { it as X509Certificate }
+    val privateKey: PrivateKey get() = privateKeyRef
+    val certificateChain: List<X509Certificate> get() = certificateChainRef
 
     val certificate: X509Certificate get() = certificateChain.first()
 
@@ -41,39 +49,70 @@ class SigningKeystore(
         const val DEFAULT_ALIAS = "androiddebugkey"
 
         /**
-         * Loads the bundled debug keystore. Tries PKCS12 first (Android support), falls
-         * back to JKS (desktop tooling / tests).
+         * Loads the bundled debug keystore. Android has no JKS provider, so we only
+         * try PKCS12 and report the real underlying error if it fails.
          */
         fun load(file: File, storePassword: CharArray = DEFAULT_STORE_PASSWORD.toCharArray()): SigningKeystore {
-            val bytes = file.readBytes()
-            val formats = listOf("PKCS12", "JKS")
-            var lastError: Exception? = null
-            for (format in formats) {
-                try {
-                    val ks = KeyStore.getInstance(format)
-                    ks.load(bytes.inputStream(), storePassword)
-                    return SigningKeystore(ks, DEFAULT_ALIAS, DEFAULT_KEY_PASSWORD.toCharArray())
-                } catch (e: Exception) {
-                    lastError = e
-                }
-            }
-            throw IllegalStateException("Unable to load keystore", lastError)
+            return loadBytes(file.readBytes(), storePassword)
         }
 
-        /** Read a keystore from bytes. */
+        /** Read a keystore from bytes (PKCS12; JKS is unavailable on Android). */
         fun loadBytes(bytes: ByteArray, storePassword: CharArray = DEFAULT_STORE_PASSWORD.toCharArray()): SigningKeystore {
-            val formats = listOf("PKCS12", "JKS")
-            var lastError: Exception? = null
-            for (format in formats) {
+            if (bytes.isEmpty()) throw IllegalStateException("Keystore is empty")
+            var last: Exception? = null
+            for (format in listOf("PKCS12", KeyStore.getDefaultType())) {
                 try {
                     val ks = KeyStore.getInstance(format)
                     ks.load(bytes.inputStream(), storePassword)
-                    return SigningKeystore(ks, DEFAULT_ALIAS, DEFAULT_KEY_PASSWORD.toCharArray())
+                    if (ks.containsAlias(DEFAULT_ALIAS)) {
+                        return fromKeyStore(ks)
+                    }
+                    last = IllegalStateException("Keystore loaded but no alias '${DEFAULT_ALIAS}' found")
                 } catch (e: Exception) {
-                    lastError = e
+                    last = e
                 }
             }
-            throw IllegalStateException("Unable to load keystore", lastError)
+            throw IllegalStateException("Unable to load keystore", last)
+        }
+
+        /** Wrap an already-loaded PKCS12 keystore. */
+        fun fromKeyStore(ks: KeyStore): SigningKeystore {
+            val key = (ks.getKey(DEFAULT_ALIAS, DEFAULT_KEY_PASSWORD.toCharArray()) as? PrivateKey)
+                ?: throw IllegalStateException("No private key for alias '$DEFAULT_ALIAS'")
+            val chain = ks.getCertificateChain(DEFAULT_ALIAS)
+                ?.filterIsInstance<X509Certificate>()
+                ?.takeIf { it.isNotEmpty() }
+                ?: throw IllegalStateException("No certificate chain for alias '$DEFAULT_ALIAS'")
+            return SigningKeystore(key, chain)
+        }
+
+        /**
+         * Reads a PKCS#8 private key (PEM) and the matching X.509 certificate (PEM).
+         * Only uses [KeyFactory] + [CertificateFactory], which are always available on
+         * Android, so this never depends on keystore-container parsing.
+         */
+        fun loadPem(
+            privateKeyPem: String,
+            certificatePem: String,
+        ): SigningKeystore {
+            val keyBytes = decodePem(privateKeyPem, "PRIVATE KEY")
+            val key = try {
+                KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(keyBytes))
+            } catch (e: Exception) {
+                // Fall back to trying whatever key type it actually is
+                throw IllegalStateException("Unsupported private key: ${e.message}", e)
+            }
+            val certBytes = decodePem(certificatePem, "CERTIFICATE")
+            val cert = CertificateFactory.getInstance("X.509")
+                .generateCertificate(certBytes.inputStream()) as X509Certificate
+            return SigningKeystore(key, listOf(cert))
+        }
+
+        private fun decodePem(pem: String, label: String): ByteArray {
+            val body = pem
+                .replace(Regex("-----(BEGIN|END) $label-----"), "")
+                .replace(Regex("\\s"), "")
+            return Base64.getDecoder().decode(body)
         }
     }
 }

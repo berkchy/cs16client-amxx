@@ -7,6 +7,7 @@ import okhttp3.Request
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.io.DEFAULT_BUFFER_SIZE
 
 /**
  * Minimal GitHub Releases client. Fetches the latest release metadata and downloads
@@ -54,7 +55,11 @@ object ReleaseRepository {
         }
     }
 
-    suspend fun download(asset: Release.Asset, dest: File): File {
+    suspend fun download(
+        asset: Release.Asset,
+        dest: File,
+        onProgress: (Float) -> Unit = {},
+    ): File {
         val req = Request.Builder()
             .url(asset.browser_download_url)
             .header("User-Agent", "cs16-amxx-patcher")
@@ -63,9 +68,26 @@ object ReleaseRepository {
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) throw IOException("Download ${resp.code}")
             dest.parentFile?.mkdirs()
-            resp.body?.byteStream()?.use { input ->
-                dest.outputStream().use { output -> input.copyTo(output) }
-            } ?: throw IOException("Empty response body")
+            val body = resp.body
+                ?: throw IOException("Empty response body")
+            val total = asset.size.takeIf { it > 0 }
+                ?: body.contentLength().takeIf { it > 0 }
+                ?: 0L
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var read = 0L
+            body.byteStream().use { input ->
+                dest.outputStream().use { output ->
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        output.write(buffer, 0, n)
+                        read += n
+                        if (total > 0) {
+                            onProgress((read.toDouble() / total).toFloat().coerceIn(0f, 1f))
+                        }
+                    }
+                }
+            }
         }
         return dest
     }

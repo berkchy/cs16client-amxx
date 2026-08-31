@@ -85,10 +85,12 @@ fun PatcherApp(vm: PatcherViewModel) {
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
-                            nav.navigate(dest.route) {
-                                popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                            if (!selected) {
+                                nav.navigate(dest.route) {
+                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         },
                         icon = {
