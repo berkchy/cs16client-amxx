@@ -429,7 +429,8 @@ for s in sc1 sc2 sc3 sc4 sc5 sc6 sc7 scvars scmemfil scstate sclist sci18n \
   [ -e "$f" ] || continue
   "$CC" $PC_A64_COMMON -DNO_MAIN -DPAWNC_DLL -D_GNU_SOURCE -c "$f" -o "$PC_A64/$s.o"
 done
-"$CXX" -shared -o "$PC_A64/amxxpc32.so" "$PC_A64"/*.o -lm
+"$CXX" -shared -static-libstdc++ -o "$PC_A64/amxxpc32.so" "$PC_A64"/*.o -lm -ldl \
+  -Wl,--whole-archive "$SYSROOT_LIB/libc++_static.a" -Wl,--no-whole-archive "$SYSROOT_LIB/libc++abi.a"
 mkdir -p "$PC_A64/zobj"
 for f in "$AMXX/third_party/zlib"/*.c; do
   [ -e "$f" ] || continue
@@ -441,6 +442,7 @@ done
   -o "$PC_A64/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp \
   "$AMXX/compiler/amxxpc"/Binary.cpp "$AMXX/compiler/amxxpc"/amx.cpp \
   "$PC_A64"/zobj/*.o \
+  -static-libstdc++ -static-libgcc \
   -Wl,--whole-archive "$SYSROOT_LIB/libc++_static.a" -Wl,--no-whole-archive \
   "$SYSROOT_LIB/libc++abi.a" -ldl -lm -pthread
 mkdir -p "$OUT/compiler"

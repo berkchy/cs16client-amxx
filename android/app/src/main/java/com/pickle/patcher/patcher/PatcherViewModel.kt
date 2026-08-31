@@ -439,10 +439,20 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                 cmd.add("-o${File(scriptDir, f.nameWithoutExtension).absolutePath}")
                 cmd.add(source.path)
                 _compile.value = CompileState.Compiling(source.name)
-                val process = ProcessBuilder(cmd)
-                    .directory(scriptDir)
-                    .redirectErrorStream(true)
-                    .start()
+                // Ensure compiler dir is in LD_LIBRARY_PATH so driver finds amxxpc32.so
+                // (driver does dlopen("amxxpc32.so") / dlopen("./amxxpc32.so"))
+                val compilerDir = amxxpc.parentFile
+                val pb = ProcessBuilder(cmd).directory(scriptDir).redirectErrorStream(true)
+                if (compilerDir != null && compilerDir.isDirectory) {
+                    val oldLd = pb.environment()["LD_LIBRARY_PATH"]
+                    pb.environment()["LD_LIBRARY_PATH"] = compilerDir.absolutePath + if (!oldLd.isNullOrEmpty()) ":$oldLd" else ""
+                }
+                // Last-chance chmod if file lost exec bit (e.g. after reboot)
+                if (!amxxpc.canExecute()) {
+                    try { Runtime.getRuntime().exec(arrayOf("chmod", "755", amxxpc.absolutePath)).waitFor() } catch (_: Throwable) {}
+                    amxxpc.setExecutable(true, false)
+                }
+                val process = pb.start()
                 val output = process.inputStream.bufferedReader().use { it.readText() }
                 val exit = process.waitFor()
                 val log = buildString {
@@ -491,9 +501,19 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 compilerDir.mkdirs()
                 amxxpc.writeBytes(driverBytes)
+                // chmod 755 via shell is more reliable than File.setExecutable alone
+                // (some OEMs / SELinux ignore the Java API). Do both.
+                try { Runtime.getRuntime().exec(arrayOf("chmod", "755", amxxpc.absolutePath)).waitFor() } catch (_: Throwable) {}
                 amxxpc.setExecutable(true, false)
+                amxxpc.setReadable(true, false)
                 bundleFiles.files["compiler/amxxpc32.so"]?.let {
-                    if (it.isNotEmpty()) kernel.writeBytes(it)
+                    if (it.isNotEmpty()) {
+                        kernel.writeBytes(it)
+                        try { Runtime.getRuntime().exec(arrayOf("chmod", "755", kernel.absolutePath)).waitFor() } catch (_: Throwable) {}
+                        kernel.setReadable(true, false)
+                        // kernel is dlopened, not executed, but needs r+x for some loaders
+                        try { Runtime.getRuntime().exec(arrayOf("chmod", "644", kernel.absolutePath)).waitFor() } catch (_: Throwable) {}
+                    }
                 }
                 return amxxpc
             } catch (_: Throwable) {
