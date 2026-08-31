@@ -46,6 +46,18 @@ def main():
             "required": True,
             "description": "Metamod HL1",
         })
+        # Xash3D Android resolves `-dll @yapb` (hardcoded in classes.dex /
+        # MainActivity argv) to lib/arm64-v8a/libyapb_android_arm64.so and loads it
+        # as the game DLL. Shipping metamod under that same name makes the patched
+        # APK run metamod (and therefore amxmodx) as the gamedll instead of YaPB,
+        # without having to rewrite the dex. Content equals libmetamod.so.
+        entries.append({
+            "source": "lib/arm64-v8a/libmetamod.so",
+            "target": "lib/arm64-v8a/libyapb_android_arm64.so",
+            "method": "STORED",
+            "required": True,
+            "description": "Metamod as gamedll (masks libyapb_android_arm64.so)",
+        })
     for mod in MODULES:
         p = os.path.join(libdir, f"lib{mod}_amxx_amd64.so")
         if os.path.exists(p):
@@ -99,7 +111,11 @@ def main():
 
     with zipfile.ZipFile(bundle_out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("bundle.json", json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
+        seen_sources = set()
         for e in entries:
+            if e["source"] in seen_sources:
+                continue
+            seen_sources.add(e["source"])
             if e["source"] in addon_sources:
                 z.write(os.path.join(addons_dir, e["source"]), e["source"])
             elif e["source"].startswith("amxmodx/plugins/"):

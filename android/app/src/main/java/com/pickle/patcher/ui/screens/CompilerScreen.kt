@@ -1,12 +1,14 @@
 package com.pickle.patcher.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -19,16 +21,18 @@ import com.pickle.patcher.patcher.PatcherViewModel
 import com.pickle.patcher.patcher.SmaSource
 import com.pickle.patcher.ui.theme.OnDarkMuted
 import com.pickle.patcher.ui.theme.Mint80
-import java.io.File
 
 @Composable
 fun CompilerScreen(vm: PatcherViewModel) {
     val scroll = rememberScrollState()
     val scripts by vm.scripts.collectAsState()
     val compile by vm.compile.collectAsState()
+    val scriptRoot by vm.scriptRoot.collectAsState()
     var selected by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) { vm.refreshScripts() }
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri -> uri?.let(vm::setScriptRoot) }
 
     val selectedSource = scripts.firstOrNull { it.path == selected }
 
@@ -41,10 +45,39 @@ fun CompilerScreen(vm: PatcherViewModel) {
         Text("Compiler", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Compiles local AMXX plugins against the include folder next to each script.",
+            "Pick a folder to scan for .sma plugins (e.g. addons/amxmodx/scripting), then compile them with the local amxxpc.",
             style = MaterialTheme.typography.bodyLarge,
             color = OnDarkMuted,
         )
+
+        Spacer(Modifier.height(18.dp))
+
+        SectionTitle("Scripts folder")
+        Spacer(Modifier.height(10.dp))
+        ElevatedCard(shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.padding(14.dp)) {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Text(
+                        scriptRoot ?: "No folder selected yet.",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (scriptRoot != null) Mint80 else OnDarkMuted,
+                        modifier = Modifier.weight(1f),
+                    )
+                    IconButton(onClick = { if (scriptRoot != null) vm.refreshScripts() }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { folderPicker.launch(null) },
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Icon(Icons.Filled.CreateNewFolder, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (scriptRoot != null) "Change folder" else "Select folder")
+                }
+            }
+        }
 
         Spacer(Modifier.height(18.dp))
 
@@ -52,23 +85,15 @@ fun CompilerScreen(vm: PatcherViewModel) {
         Spacer(Modifier.height(10.dp))
         ElevatedCard(shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(14.dp)) {
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                if (scriptRoot == null) {
                     Text(
-                        "Scripts folder: ${
-                            File("/storage/emulated/0/xash/cstrike/addons/amxmodx/scripting").absolutePath
-                        }",
-                        style = MaterialTheme.typography.labelMedium,
+                        "Select a folder above to start scanning for .sma files.",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = OnDarkMuted,
-                        modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = { vm.refreshScripts() }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
-                    }
-                }
-                Spacer(Modifier.height(6.dp))
-                if (scripts.isEmpty()) {
+                } else if (scripts.isEmpty()) {
                     Text(
-                        "No .sma files found yet.",
+                        "No .sma files found in the selected folder.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = OnDarkMuted,
                     )
@@ -117,10 +142,9 @@ fun CompilerScreen(vm: PatcherViewModel) {
                         "Compile ${src.name}",
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    val includeDir = File(File(src.path).parentFile, "include")
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Using include: ${includeDir.absolutePath}",
+                        "Script: ${src.scriptDir}",
                         style = MaterialTheme.typography.labelMedium,
                         color = OnDarkMuted,
                     )
@@ -138,7 +162,7 @@ fun CompilerScreen(vm: PatcherViewModel) {
             }
         }
 
-        if (selectedSource == null) {
+        if (selectedSource == null && scriptRoot != null) {
             Spacer(Modifier.height(10.dp))
             Text(
                 "Select a plugin above to compile it.",

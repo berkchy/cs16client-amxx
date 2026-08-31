@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+import java.net.URLDecoder
 
 data class SourceInfo(
     val name: String,
@@ -79,6 +81,10 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _scripts = MutableStateFlow<List<SmaSource>>(emptyList())
     val scripts: StateFlow<List<SmaSource>> = _scripts.asStateFlow()
+
+    /** Root folder the user picked via SAF; null until a folder is selected. */
+    private val _scriptRoot = MutableStateFlow<String?>(null)
+    val scriptRoot: StateFlow<String?> = _scriptRoot.asStateFlow()
 
     private val _compile = MutableStateFlow<CompileState>(CompileState.Idle)
     val compile: StateFlow<CompileState> = _compile.asStateFlow()
@@ -291,7 +297,7 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
             _patch.value = PatchUiState.Running(ApkPatcher.Step.ANALYZE, 0f)
             try {
                 val report = ApkPatcher.patch(
-                    ApkPatcher.PatchRequest(src, out, b, keystore),
+                    ApkPatcher.PatchRequest(src, out, b, keystore, keepAbi = "arm64-v8a"),
                     onStep = { step, p ->
                         _patch.value = PatchUiState.Running(step, p)
                     },
@@ -326,14 +332,66 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
         lastReport = null
     }
 
-    /** Local source script folder inside the device's amxmodx tree. */
-    private val scriptingDir: File =
-        File("/storage/emulated/0/xash/cstrike/addons/amxmodx/scripting")
+    /**
+     * Called from the SAF folder picker. Persists the tree grant, resolves the picked
+     * volume folder to a real disk path (MANAGE_EXTERNAL_STORAGE already grants raw
+     * access) and lists the .sma files inside it.
+     */
+    fun setScriptRoot(uri: Uri?) {
+        if (uri == null) return
+        val app = getApplication<Application>()
+        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+        try {
+            app.contentResolver.takePersistableUriPermission(uri, flags)
+        } catch (_: Exception) {
+            // grant may not be persistable (rare); listing still works this session
+        }
+        val dir = uriToDir(uri) ?: let {
+            _compile.value = CompileState.Failed(
+                "Could not resolve the picked folder to a disk path.\n" +
+                    "Pick a folder on the device's internal storage (e.g. .../xash/cstrike/addons/amxmodx/scripting)."
+            )
+            return
+        }
+        _scriptRoot.value = dir.absolutePath
+        refreshScripts()
+    }
+
+    private fun uriToDir(uri: Uri): File? {
+        // external storage (com.android.externalstorage.documents):
+        // content://.../tree/primary%3Axash%2Fcstrike  -> /storage/emulated/0/xash/cstrike
+        val path = uri.path ?: return null
+        val marker = "/tree/"
+        val idx = path.indexOf(marker)
+        val doc = if (idx >= 0) path.substring(idx + marker.length) else path.trimStart('/')
+        val decoded = URLDecoder.decode(doc, Charsets.UTF_8.name()) // primary:xash/cstrike
+        val volumeSep = decoded.indexOf(':')
+        if (volumeSep < 0) return null
+        val volume = decoded.substring(0, volumeSep) // primary (or SD-card volume id)
+        val rel = decoded.substring(volumeSep + 1).trimStart('/')
+        if (volume == "primary") {
+            return File(File(Environment.getExternalStorageDirectory(), ""), rel)
+        }
+        // secondary/custom volume: look it up on mounted volumes (API 30+ for a path)
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val manager = getApplication<Application>().getSystemService(Context.STORAGE_SERVICE) as android.os.storage.StorageManager
+            for (v in manager.storageVolumes) {
+                val dirPath = v.directory?.absolutePath ?: continue
+                if (v.uuid == volume && File(dirPath).isDirectory) {
+                    return File(File(dirPath, ""), rel)
+                }
+            }
+        }
+        return null
+    }
 
     fun refreshScripts() {
         viewModelScope.launch(Dispatchers.IO) {
-            val dir = scriptingDir
-            val files = if (dir.isDirectory) {
+            val dir = _scriptRoot.value?.let { File(it) } ?: run {
+                _scripts.value = emptyList()
+                return@launch
+            }
+            _scripts.value = if (dir.isDirectory) {
                 dir.listFiles { f ->
                     f.isFile && f.name.endsWith(".sma", ignoreCase = true)
                 }?.sortedBy { it.name }?.map { f ->
@@ -346,14 +404,13 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
             } else {
                 emptyList()
             }
-            _scripts.value = files
         }
     }
 
     /**
-     * Compiles the selected .sma with amxxpc/pawncc, passing -i to the local
-     * include folder next to the script. If no compiler binary is present it
-     * reports a clear message (UI skeleton; real compiler ships later).
+     * Compiles the selected .sma with amxxpc/pawncc, passing -i to the include folder
+     * next to the script. The compiler binary is looked up in the picked root folder
+     * (falling back to the folder the script lives in).
      */
     fun compile(source: SmaSource) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -363,15 +420,21 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                 if (!f.exists()) error("Source not found: ${source.name}")
                 val scriptDir = f.parentFile ?: error("Bad source path")
                 val includeDir = File(scriptDir, "include")
-                val amxxpc = File(scriptDir, "amxxpc")
-
-                if (!amxxpc.exists()) {
-                    _compile.value = CompileState.Failed(
-                        "Compiler binary (amxxpc) not found next to the script.\n" +
-                            "Expected: $amxxpc\nUI is ready — compiler ships in a later build."
-                    )
-                    return@launch
-                }
+                val rootDir = _scriptRoot.value?.let { File(it) }
+                val amxxpc = listOfNotNull(rootDir, scriptDir)
+                    .map { File(it, "amxxpc") }
+                    .firstOrNull { it.exists() }
+                    ?: run {
+                        _compile.value = CompileState.Failed(
+                            "Compiler binary (amxxpc) not found.\n" +
+                                "Expected it in the picked folder or next to the script: " +
+                                listOfNotNull(
+                                    rootDir?.let { File(it, "amxxpc").absolutePath },
+                                    File(scriptDir, "amxxpc").absolutePath,
+                                ).joinToString("\n• ")
+                        )
+                        return@launch
+                    }
 
                 val cmd = mutableListOf(amxxpc.absolutePath)
                 if (includeDir.isDirectory) {

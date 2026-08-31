@@ -17,6 +17,7 @@ object ApkPatcher {
         val keystore: SigningKeystore,
         val exclude: ExcludeRule = ExcludeRule.DEFAULT,
         val minSdk: Int = 21,
+        val keepAbi: String? = null,
     )
 
     data class PatchReport(
@@ -61,6 +62,7 @@ object ApkPatcher {
             output = request.outputApk,
             bundle = request.bundle,
             exclude = request.exclude,
+            pruneAbiExcept = request.keepAbi,
             progress = { done, total ->
                 val p = 0.1f + 0.5f * (done.toFloat() / total.toFloat())
                 onStep(Step.INJECT, p.coerceIn(0.1f, 0.6f))

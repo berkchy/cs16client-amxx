@@ -37,6 +37,7 @@ object ZipRepacker {
         output: File,
         bundle: Bundle,
         exclude: ExcludeRule = ExcludeRule.DEFAULT,
+        pruneAbiExcept: String? = null,
         progress: ((Long, Long) -> Unit)? = null,
     ): Result {
         val src = ZipRaw.open(source) ?: throw IOException("Source APK could not be parsed")
@@ -47,7 +48,7 @@ object ZipRepacker {
             val removed = ArrayList<String>()
             val keptEntries = ArrayList<ZipRaw.ZipEntryInfo>()
             for ((name, entry) in src.entries) {
-                val excluded = excludable(name, exclude)
+                val excluded = excludable(name, exclude) || prunedByAbi(name, pruneAbiExcept)
                 if (excluded) removed.add(name) else keptEntries.add(entry)
             }
 
@@ -250,6 +251,20 @@ object ZipRepacker {
             if (name.startsWith(p)) return true
         }
         return false
+    }
+
+    /**
+     * ABIs we do not ship are dropped entirely so the patched APK only contains the
+     * native libs for the target ABI (e.g. "arm64-v8a"). This keeps Xash from loading
+     * a wrong-ABI engine/gamedll lib that would otherwise shadow the injected metamod.
+     */
+    private fun prunedByAbi(name: String, keepAbi: String?): Boolean {
+        if (keepAbi == null) return false
+        if (!name.startsWith("lib/")) return false
+        // under lib/<abi>/ if the abi matches, keep; every other lib entry (other abi
+        // dirs, or a stray lib at the root) is pruned.
+        if (name.startsWith("lib/$keepAbi/")) return false
+        return true
     }
 
     private fun crc32(data: ByteArray): Long {
