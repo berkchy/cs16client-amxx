@@ -37,11 +37,29 @@ sealed interface BundleState {
     data class DownloadError(val message: String) : BundleState
 }
 
+sealed interface AddonsState {
+    data object None : AddonsState
+    data class Downloading(val percent: Float, val step: String) : AddonsState
+    data class Done(val message: String) : AddonsState
+    data class Error(val message: String) : AddonsState
+}
+
 sealed interface PatchUiState {
     data object Idle : PatchUiState
     data class Running(val step: ApkPatcher.Step, val progress: Float) : PatchUiState
     data class Done(val report: ApkPatcher.PatchReport) : PatchUiState
     data class Failed(val message: String) : PatchUiState
+}
+
+data class SmaSource(val path: String, val name: String, val hasInclude: Boolean) {
+    val scriptDir: String get() = File(path).parentFile?.absolutePath.orEmpty()
+}
+
+sealed interface CompileState {
+    data object Idle : CompileState
+    data class Compiling(val source: String) : CompileState
+    data class Done(val log: String) : CompileState
+    data class Failed(val message: String) : CompileState
 }
 
 class PatcherViewModel(app: Application) : AndroidViewModel(app) {
@@ -55,6 +73,15 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _bundle = MutableStateFlow<BundleState>(BundleState.None)
     val bundle: StateFlow<BundleState> = _bundle.asStateFlow()
+
+    private val _addons = MutableStateFlow<AddonsState>(AddonsState.None)
+    val addons: StateFlow<AddonsState> = _addons.asStateFlow()
+
+    private val _scripts = MutableStateFlow<List<SmaSource>>(emptyList())
+    val scripts: StateFlow<List<SmaSource>> = _scripts.asStateFlow()
+
+    private val _compile = MutableStateFlow<CompileState>(CompileState.Idle)
+    val compile: StateFlow<CompileState> = _compile.asStateFlow()
 
     private val _releaseNote = MutableStateFlow<String?>(null)
     val releaseNote: StateFlow<String?> = _releaseNote.asStateFlow()
@@ -197,6 +224,59 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
         _bundle.value = BundleState.Ready(label, b.manifest.entries.size, b.manifest.version)
     }
 
+    /**
+     * Downloads only the addons package (plugins + modules + configs) from the
+     * latest release and extracts it into the device's cstrike folder. The full
+     * mod bundle itself is fetched during patching, not here.
+     */
+    fun fetchAndInstallAddons() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _addons.value = AddonsState.Downloading(0f, "Resolving latest release…")
+            try {
+                val rel = ReleaseRepository.latest(repo)
+                val asset = rel.addonsAsset()
+                    ?: throw IOException("No addons asset in the latest release")
+                val zip = File(bundleProvider.cacheDir(), "amxx-addons.zip")
+                _addons.value = AddonsState.Downloading(0f, "Downloading addons…")
+                ReleaseRepository.download(asset, zip) { p ->
+                    _addons.value = AddonsState.Downloading(p, "Downloading addons…")
+                }
+                _addons.value = AddonsState.Downloading(1f, "Extracting into cstrike…")
+                val target = File("/storage/emulated/0/xash/cstrike")
+                val count = unzipInto(zip, target)
+                _addons.value = AddonsState.Done(
+                    "Installed ${count} addons files into ${target.path}"
+                )
+            } catch (t: Throwable) {
+                _addons.value = AddonsState.Error(t.message ?: "Unknown error")
+            }
+        }
+    }
+
+    private fun unzipInto(zip: File, target: File): Int {
+        var count = 0
+        java.util.zip.ZipFile(zip).use { zf ->
+            zf.entries().asSequence().forEach { entry ->
+                if (entry.isDirectory) return@forEach
+                val name = entry.name
+                // amxx-addons.zip is built with an `addons/...` prefix.
+                val rel = if (name.startsWith("addons/")) name.drop(7) else name
+                if (rel.isBlank()) return@forEach
+                val out = File(target, rel)
+                // guard against path traversal
+                if (!out.canonicalPath.startsWith(target.canonicalPath + File.separator)) {
+                    throw IOException("Unsafe path in addons zip: $name")
+                }
+                out.parentFile?.mkdirs()
+                zf.getInputStream(entry).use { input ->
+                    out.outputStream().use { output -> input.copyTo(output) }
+                }
+                count++
+            }
+        }
+        return count
+    }
+
     fun startPatch() {
         val src = _receivedSource.value ?: return
         val b = loadedBundle ?: return
@@ -244,6 +324,85 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
     fun reset() {
         _patch.value = PatchUiState.Idle
         lastReport = null
+    }
+
+    /** Local source script folder inside the device's amxmodx tree. */
+    private val scriptingDir: File =
+        File("/storage/emulated/0/xash/cstrike/addons/amxmodx/scripting")
+
+    fun refreshScripts() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val dir = scriptingDir
+            val files = if (dir.isDirectory) {
+                dir.listFiles { f ->
+                    f.isFile && f.name.endsWith(".sma", ignoreCase = true)
+                }?.sortedBy { it.name }?.map { f ->
+                    SmaSource(
+                        path = f.absolutePath,
+                        name = f.name,
+                        hasInclude = File(f.parentFile, "include").isDirectory,
+                    )
+                }.orEmpty()
+            } else {
+                emptyList()
+            }
+            _scripts.value = files
+        }
+    }
+
+    /**
+     * Compiles the selected .sma with amxxpc/pawncc, passing -i to the local
+     * include folder next to the script. If no compiler binary is present it
+     * reports a clear message (UI skeleton; real compiler ships later).
+     */
+    fun compile(source: SmaSource) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _compile.value = CompileState.Compiling(source.name)
+            try {
+                val f = File(source.path)
+                if (!f.exists()) error("Source not found: ${source.name}")
+                val scriptDir = f.parentFile ?: error("Bad source path")
+                val includeDir = File(scriptDir, "include")
+                val amxxpc = File(scriptDir, "amxxpc")
+
+                if (!amxxpc.exists()) {
+                    _compile.value = CompileState.Failed(
+                        "Compiler binary (amxxpc) not found next to the script.\n" +
+                            "Expected: $amxxpc\nUI is ready — compiler ships in a later build."
+                    )
+                    return@launch
+                }
+
+                val cmd = mutableListOf(amxxpc.absolutePath)
+                if (includeDir.isDirectory) {
+                    cmd.add("-i${includeDir.absolutePath}")
+                }
+                cmd.add(source.path)
+                _compile.value = CompileState.Compiling(source.name)
+                val process = ProcessBuilder(cmd)
+                    .directory(scriptDir)
+                    .redirectErrorStream(true)
+                    .start()
+                val output = process.inputStream.bufferedReader().use { it.readText() }
+                val exit = process.waitFor()
+                val log = buildString {
+                    append("$ ${cmd.joinToString(" ")}\n")
+                    append(output.trim())
+                    if (output.trim().isNotEmpty()) append("\n")
+                    append("exit=$exit\n")
+                    val out = File(scriptDir, f.nameWithoutExtension + ".amxx")
+                    if (exit == 0 && out.exists()) {
+                        append("OK: ${out.name} (${out.length()} bytes)")
+                    } else {
+                        append("Compile failed.")
+                    }
+                }
+                _compile.value =
+                    if (exit == 0) CompileState.Done(log) else CompileState.Failed(log)
+            } catch (t: Throwable) {
+                _compile.value = CompileState.Failed(t.message ?: "Compile error")
+            }
+        }
     }
 
     private companion object {

@@ -9,11 +9,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.outlined.Architecture
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.pickle.patcher.patcher.PatcherViewModel
 import com.pickle.patcher.ui.screens.CrashLogScreen
+import com.pickle.patcher.ui.screens.CompilerScreen
 import com.pickle.patcher.ui.screens.HomeScreen
 import com.pickle.patcher.ui.screens.PatchScreen
 import com.pickle.patcher.ui.screens.ReleasesScreen
@@ -63,6 +66,7 @@ private enum class Dest(
     Home("home", "Home", Icons.Filled.Home, Icons.Outlined.Home),
     Patch("patch", "Patch", Icons.Filled.RocketLaunch, Icons.Outlined.Architecture),
     Crash("crash", "Crash Log", Icons.Filled.BugReport, Icons.Outlined.BugReport),
+    Compiler("compiler", "Compiler", Icons.Filled.Code, Icons.Outlined.Code),
     Releases("releases", "Downloads", Icons.Filled.Build, Icons.Outlined.Build),
 }
 
@@ -126,6 +130,7 @@ fun PatcherApp(vm: PatcherViewModel) {
             }
             composable(Dest.Patch.route) { PatchScreen(vm) }
             composable(Dest.Crash.route) { CrashLogScreen(vm) }
+            composable(Dest.Compiler.route) { CompilerScreen(vm) }
             composable(Dest.Releases.route) { ReleasesScreen(vm) }
         }
     }

@@ -41,6 +41,10 @@ object ReleaseRepository {
         fun bundleAsset(): Asset? = assets.firstOrNull {
             it.name.startsWith("amxx-bundle") && it.name.endsWith(".zip")
         }
+
+        fun addonsAsset(): Asset? = assets.firstOrNull {
+            it.name.startsWith("amxx-addons") && it.name.endsWith(".zip")
+        }
     }
 
     suspend fun latest(repo: String): Release {

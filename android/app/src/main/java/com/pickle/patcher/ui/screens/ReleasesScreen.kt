@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.pickle.patcher.patcher.AddonsState
 import com.pickle.patcher.patcher.BundleState
 import com.pickle.patcher.patcher.PatcherViewModel
 import com.pickle.patcher.ui.theme.Mint80
@@ -26,6 +27,7 @@ fun ReleasesScreen(vm: PatcherViewModel) {
     val scroll = rememberScrollState()
     val note by vm.releaseNote.collectAsState()
     val bundle by vm.bundle.collectAsState()
+    val addons by vm.addons.collectAsState()
 
     Column(
         Modifier
@@ -33,17 +35,73 @@ fun ReleasesScreen(vm: PatcherViewModel) {
             .verticalScroll(scroll)
             .padding(20.dp),
     ) {
-        Text("Bundle Manager", style = MaterialTheme.typography.headlineMedium)
+        Text("Downloads", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Each release is built by GitHub Actions: core, modules, and plugins, packaged into a single bundle.",
+            "Install the latest addons (plugins, modules, configs) into your cstrike " +
+                "folder, or manage the mod bundle used while patching.",
             style = MaterialTheme.typography.bodyLarge,
             color = OnDarkMuted,
         )
 
         Spacer(Modifier.height(18.dp))
 
-        SectionTitle("Latest release")
+        SectionTitle("Addons")
+        Spacer(Modifier.height(10.dp))
+        ElevatedCard(shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.padding(18.dp)) {
+                Text(
+                    "Downloads only the addons package — smaller and quicker than the " +
+                        "full bundle. Extracted into /storage/emulated/0/xash/cstrike.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = OnDarkMuted,
+                )
+                Spacer(Modifier.height(12.dp))
+                when (val a = addons) {
+                    is AddonsState.Downloading -> {
+                        LinearProgressIndicator(
+                            progress = { a.percent },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            a.step,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = OnDarkMuted,
+                        )
+                    }
+                    is AddonsState.Done -> Text(
+                        a.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Mint80,
+                    )
+                    is AddonsState.Error -> Text(
+                        a.message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    is AddonsState.None -> Text(
+                        "Not downloaded yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = OnDarkMuted,
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { vm.fetchAndInstallAddons() },
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Filled.CloudDownload, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Download & Install Addons")
+                }
+            }
+        }
+
+        Spacer(Modifier.height(22.dp))
+
+        SectionTitle("Latest release (mod bundle)")
         Spacer(Modifier.height(10.dp))
         ElevatedCard(shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.padding(18.dp)) {
