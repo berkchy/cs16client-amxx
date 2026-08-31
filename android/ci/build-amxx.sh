@@ -61,7 +61,12 @@ vendored_from() {
     (cd "$dst" && git init -q && git add -A && git -c user.name=ci -c user.email=ci@ci commit -q -m sourced)
   fi
 }
+# metamod-p stays only as the header source used to compile the AMXX core
+# (its meta_api.h ABI suffices); the actual runtime gamemod is metamod-fwgs.
 vendored_from "$REPO_ROOT/android/mm-p" "$SRC/metamod-p"
+# Runtime metamod: FWGS/metamod-fwgs (CMake), Xash3D-explicit, produces
+# libmetamod_android_arm64.so.
+fetch metamod-fwgs "https://github.com/FWGS/metamod-fwgs.git" yes
 
 apply_patch() {
   local patch=$1 dir=$2 subdir=${3:-}
@@ -86,7 +91,6 @@ apply_patch "$PATCHES/amxmodx-64bit-cell-casts.diff"       "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-memtools-dlfcn.diff"         "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-CTextParsers-quote-underrun.diff" "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-amtl-64bit.diff"             "$SRC/amxmodx" "public/amtl"
-apply_patch "$PATCHES/metamod-p-aarch64.patch"            "$SRC/metamod-p"
 
 # ----------------------------------------------------------------- toolchain
 HOST=$(uname -s | tr 'A-Z' 'a-z')
@@ -211,42 +215,21 @@ fi
 PCRE_A="$TMP/pcre-inst/lib/libpcre.a"
 
 # ------------------------------------------------------------- metamod
-# metamod-p: aarch64 (patches/metamod-p-aarch64.patch). Statically links libc++
-# so no libc++_shared.so needs to ship in the bundle.
-echo "== building metamod (metamod-p, aarch64) =="
-MM_INC=(
-  -I"$METAMOD"
-  -I"$MMHLSDK/engine" -I"$MMHLSDK/common" -I"$MMHLSDK/pm_shared" -I"$MMHLSDK/dlls" -I"$MMHLSDK"
-)
-MM_DEFS=(
-  -D__METAMOD_BUILD__
-  -Dstricmp=strcasecmp
-  -Dstrnicmp=strncasecmp
-  -D_snprintf=snprintf
-  -D__BYTE_ORDER=__LITTLE_ENDIAN
-)
-for f in \
-  api_hook.cpp api_info.cpp commands_meta.cpp conf_meta.cpp dllapi.cpp \
-  engine_api.cpp engineinfo.cpp game_support.cpp game_autodetect.cpp h_export.cpp \
-  linkgame.cpp linkplug.cpp log_meta.cpp meta_eiface.cpp metamod.cpp mlist.cpp \
-  mplayer.cpp mplugin.cpp mreg.cpp mutil.cpp osdep.cpp osdep_p.cpp \
-  reg_support.cpp sdk_util.cpp studioapi.cpp support_meta.cpp vdate.cpp \
-  osdep_linkent_linux.cpp osdep_detect_gamedll_linux.cpp; do
-  file="$METAMOD/$f"
-  [ -e "$file" ] || continue
-  base=$(basename "$file")
-  obj="$TMP/metamod/$base.o"
-  mkdir -p "$(dirname "$obj")"
-  "$CXX" "${FLAGS[@]}" -std=gnu++98 -Wno-reserved-user-defined-literal "${CXXFLAGS[@]}" \
-    -fvisibility=default "${MM_INC[@]}" "${MM_DEFS[@]}" -c "$file" -o "$obj"
-done
-# Export every metamod API symbol so the Xash gamedll loader's dlsym lookups
-# (GetEntityAPI, GiveFnptrsToDll, GetNewDLLFunctions, meta_* ...) always resolve,
-# and apply metamod-p's hotdata.ld linker script (same one as upstream LINK_LINUX).
-"$CXX" -fPIC -O2 -shared -static-libstdc++ -Wl,--export-dynamic \
-  -Wl,-T,"$METAMOD/hotdata.ld" \
-  -o "$OUT/lib/arm64-v8a/libmetamod.so" \
-  "$TMP"/metamod/*.o -ldl -lm
+# fwgs metamod (FWGS/metamod-fwgs): Xash3D-explicit, builds
+# libmetamod_android_arm64.so via CMake with the NDK toolchain. Renamed to
+# libmetamod.so for the bundle (the yapb alias still resolves to the same file).
+echo "== building metamod (metamod-fwgs, aarch64) =="
+MMBUILD=$TMP/metamod-fwgs-build
+cmake -S "$SRC/metamod-fwgs" -B "$MMBUILD" \
+  -GNinja \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a \
+  -DANDROID_PLATFORM=android-24 \
+  -DANDROID_STL=c++_static \
+  -DUSE_STATIC_RUNTIME=ON \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build "$MMBUILD" --target metamod -j"$(nproc)"
+cp "$MMBUILD/metamod/libmetamod_android_arm64.so" "$OUT/lib/arm64-v8a/libmetamod.so"
 echo "   metamod -> $(ls -l "$OUT/lib/arm64-v8a/libmetamod.so" | awk '{print $5}') bytes"
 
 # ----------------------------------------------------------------- modules

@@ -40,6 +40,9 @@ jobs:
                 [ -n "$SDKM" ] && echo "y" | "$SDKM" "ndk;25.2.9519653")
           NDK_ROOT=$(ls -d "$ANDROID_HOME"/ndk/25.2.9519653 2>/dev/null)
           echo "ANDROID_NDK_HOME=$NDK_ROOT" >> "$GITHUB_ENV"
+          command -v cmake >/dev/null || sudo apt-get update
+          command -v cmake >/dev/null || sudo apt-get install -y cmake
+          command -v ninja >/dev/null || sudo apt-get install -y ninja-build
 
       - name: Cross-compile core + modules + plugins
         shell: bash
