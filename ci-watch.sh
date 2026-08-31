@@ -57,9 +57,16 @@ while true; do
       echo
       echo "==> failed (errors):"
       gh run view "$RUN" --repo "$REPO" --log-failed 2>/dev/null \
-        | grep -Ei "e: .*\.kt|error:|compilation error|FAILURE:|Process completed|\^" \
+        | tr -d '\r' \
+        | grep -iE "error:|fatal|undefined|FAILED|FAILURE|ninja: build stopped|no matching" \
         | grep -viE "JAVA_HOME|ANDROID_HOME|GRADLE_USER_HOME|DEVELOCITY" \
-        | head -60 || true
+        | grep -v "note:" \
+        | grep -v "\^" \
+        | head -n 100 || true
+      # Kotlin / Gradle errors (if any)
+      gh run view "$RUN" --repo "$REPO" --log-failed 2>/dev/null \
+        | grep -E "e: .*\.kt" \
+        | head -n 50 || true
     fi
     exit 0
   fi
