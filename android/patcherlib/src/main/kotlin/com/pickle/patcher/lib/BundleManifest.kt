@@ -103,7 +103,7 @@ data class Bundle(
                 for ((name, entry) in file.entries) {
                     if (name.endsWith("/")) continue
                     if (name == MANIFEST_PATH) continue
-                    files[name] = file.readRaw(entry)
+                    files[name] = file.readContent(entry)
                 }
                 return Bundle(manifest, files)
             } finally {
