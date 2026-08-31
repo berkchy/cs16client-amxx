@@ -479,11 +479,32 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
         get() = File(getApplication<Application>().filesDir, "compiler/amxxpc").absolutePath
 
     /**
-     * Returns a runnable amxxpc: on first call it extracts the compiler driver and
-     * kernel from the bundle (embedded or cached) into the app files dir. Returns a
-     * local amxxpc found next to the script as a fallback when the bundle has none.
+     * Returns a runnable amxxpc: prefers the copy shipped as native lib
+     * (lib/arm64-v8a/libamxxpc.so in the patcher APK → nativeLibraryDir, always
+     * executable), then falls back to extracting from bundle into filesDir.
      */
     private fun prepareCompiler(fallbackDir: File): File? {
+        // 1) nativeLibraryDir (APK lib, extractNativeLibs=true) — always exec-allowed
+        try {
+            val nativeDir = File(getApplication<Application>().applicationInfo.nativeLibraryDir)
+            val nativeAmxxpc = File(nativeDir, "libamxxpc.so")
+            val nativeKernel = File(nativeDir, "libamxxpc32.so")
+            if (nativeAmxxpc.exists() && nativeAmxxpc.canExecute()) {
+                // Driver dlopens "amxxpc32.so" (no lib prefix) — copy libamxxpc32.so to filesDir/amxxpc32.so so it is found
+                try {
+                    val compilerDir = File(getApplication<Application>().filesDir, "compiler")
+                    compilerDir.mkdirs()
+                    val kernelCopy = File(compilerDir, "amxxpc32.so")
+                    if (nativeKernel.exists() && (!kernelCopy.exists() || kernelCopy.length() != nativeKernel.length())) {
+                        kernelCopy.writeBytes(nativeKernel.readBytes())
+                        try { Runtime.getRuntime().exec(arrayOf("chmod", "644", kernelCopy.absolutePath)).waitFor() } catch (_: Throwable) {}
+                        kernelCopy.setReadable(true, false)
+                    }
+                } catch (_: Throwable) {}
+                return nativeAmxxpc
+            }
+        } catch (_: Throwable) {}
+
         // Use the app's internal files dir (getFilesDir), not external storage:
         // the external/emulated dir is typically mounted noexec, so an ELF written
         // there cannot be exec'd ("permission denied" on ProcessBuilder.start()).
