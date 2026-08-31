@@ -429,7 +429,8 @@ PC_A64="$TMP/amxxpc-arm64"
 rm -rf "$PC_A64"
 mkdir -p "$PC_A64"
 PC_A64_COMMON="-std=gnu17 -O2 -fPIC -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DLINUX \
-  -DHAVE_UNISTD_H -DHAVE_INTTYPES_H -DHAVE_STDINT_H -DHAVE_ALLOCA_H -I$LIBPC"
+  -DHAVE_UNISTD_H -DHAVE_INTTYPES_H -DHAVE_STDINT_H -DHAVE_ALLOCA_H \
+  -D__BYTE_ORDER=__LITTLE_ENDIAN -D__LITTLE_ENDIAN -I$LIBPC"
 for s in sc1 sc2 sc3 sc4 sc5 sc6 sc7 scvars scmemfil scstate sclist sci18n \
          pawncc libpawnc prefix memfile sp_symhash; do
   f="$LIBPC/$s.c"
@@ -443,7 +444,7 @@ for f in "$AMXX/third_party/zlib"/*.c; do
   "$CC" -O2 -fPIC -c "$f" -o "$PC_A64/zobj/$(basename "${f%.c}").o"
 done
 "$CXX" -O2 -std=c++14 -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DHAVE_STDINT_H \
-  -DLINUX -DAMX_ANSIONLY \
+  -DLINUX -DAMX_ANSIONLY -D__BYTE_ORDER=__LITTLE_ENDIAN -D__LITTLE_ENDIAN \
   -I"$LIBPC" -I"$AMXX/public" -I"$AMXX/compiler/amxxpc" -I"$AMXX/third_party" \
   -o "$PC_A64/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp \
   "$AMXX/compiler/amxxpc"/Binary.cpp "$AMXX/compiler/amxxpc"/amx.cpp \
