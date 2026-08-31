@@ -95,6 +95,25 @@ apply_patch "$PATCHES/amxmodx-amtl-64bit.diff"             "$SRC/amxmodx" "publi
 # which requires this ARM64 shim (cs16_amxx_compat.h + const SET_LOCALINFO).
 apply_patch "$PATCHES/metamod-p-aarch64.patch"            "$SRC/metamod-p"
 apply_patch "$PATCHES/metamod-fwgs-android.patch"          "$SRC/metamod-fwgs"
+# Android native lib: also try libamxxpc32.so (APK lib prefix) when driver is libamxxpc.so
+if [ -f "$SRC/amxmodx/compiler/amxxpc/amxxpc.cpp" ]; then
+  python3 - "$SRC" <<'PYEOF' || true
+import sys, os
+src = sys.argv[1]
+p = os.path.join(src, "amxmodx/compiler/amxxpc/amxxpc.cpp")
+data = open(p, encoding="utf-8").read()
+old = '\tHINSTANCE lib = NULL;\n\tdlopen("libm.so", RTLD_NOW | RTLD_GLOBAL);\n\tif (FileExists("./amxxpc32.so"))\n\t\tlib = dlmount("./amxxpc32.so");\n\telse\n\t\tlib = dlmount("amxxpc32.so");'
+new = '\tHINSTANCE lib = NULL;\n\tdlopen("libm.so", RTLD_NOW | RTLD_GLOBAL);\n\tif (FileExists("./amxxpc32.so"))\n\t\tlib = dlmount("./amxxpc32.so");\n\telse if (FileExists("./libamxxpc32.so"))\n\t\tlib = dlmount("./libamxxpc32.so");\n\telse if (FileExists("libamxxpc32.so"))\n\t\tlib = dlmount("libamxxpc32.so");\n\telse\n\t\tlib = dlmount("amxxpc32.so");'
+if old in data:
+    open(p, "w", encoding="utf-8").write(data.replace(old, new))
+    print("patched amxxpc for lib prefix")
+else:
+    if 'lib = dlmount("./amxxpc32.so");' in data and 'libamxxpc32.so' not in data:
+        data = data.replace('lib = dlmount("./amxxpc32.so");', 'lib = dlmount("./amxxpc32.so");\n\telse if (FileExists("./libamxxpc32.so"))\n\t\tlib = dlmount("./libamxxpc32.so");\n\telse if (FileExists("libamxxpc32.so"))\n\t\tlib = dlmount("libamxxpc32.so");')
+        open(p, "w", encoding="utf-8").write(data)
+        print("patched amxxpc (fallback)")
+PYEOF
+fi
 
 # ----------------------------------------------------------------- toolchain
 HOST=$(uname -s | tr 'A-Z' 'a-z')
