@@ -103,18 +103,19 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
      * which are always available on Android; falls back to the PKCS12 container.
      */
     private fun loadSigningKeystore(): SigningKeystore {
-        val assets = app.assets
+        val assets = getApplication<Application>().assets
         val keyPem = runCatching {
             assets.open("keystore/debug_key.pem").use { it.readBytes().decodeToString() }
         }.getOrNull()
         val certPem = runCatching {
             assets.open("keystore/debug_cert.pem").use { it.readBytes().decodeToString() }
         }.getOrNull()
-        if (keyPem != null && certPem != null) {
-            return SigningKeystore.loadPem(keyPem, certPem)
+        return if (keyPem != null && certPem != null) {
+            SigningKeystore.loadPem(keyPem, certPem)
+        } else {
+            val p12 = assets.open("keystore/debug.p12").use { it.readBytes() }
+            SigningKeystore.loadBytes(p12)
         }
-        val p12 = assets.open("keystore/debug.p12").use { it.readBytes() }
-        return SigningKeystore.loadBytes(p12)
     }
 
     /** Copies a SAF-picked source APK into app storage. */
