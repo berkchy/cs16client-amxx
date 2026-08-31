@@ -408,9 +408,10 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Compiles the selected .sma with amxxpc/pawncc, passing -i to the include folder
-     * next to the script. The compiler binary is looked up in the picked root folder
-     * (falling back to the folder the script lives in).
+     * Compiles the selected .sma on-device using the amxxpc bundled in the release
+     * module. The driver + its libpc300 kernel (amxxpc32.so) are extracted from the
+     * bundle into the app files dir so no separate install is required. Falls back
+     * to an amxxpc sitting next to the script if no bundle compiler is available.
      */
     fun compile(source: SmaSource) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -420,26 +421,22 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                 if (!f.exists()) error("Source not found: ${source.name}")
                 val scriptDir = f.parentFile ?: error("Bad source path")
                 val includeDir = File(scriptDir, "include")
-                val rootDir = _scriptRoot.value?.let { File(it) }
-                val amxxpc = listOfNotNull(rootDir, scriptDir)
-                    .map { File(it, "amxxpc") }
-                    .firstOrNull { it.exists() }
-                    ?: run {
-                        _compile.value = CompileState.Failed(
-                            "Compiler binary (amxxpc) not found.\n" +
-                                "Expected it in the picked folder or next to the script: " +
-                                listOfNotNull(
-                                    rootDir?.let { File(it, "amxxpc").absolutePath },
-                                    File(scriptDir, "amxxpc").absolutePath,
-                                ).joinToString("\n• ")
-                        )
-                        return@launch
-                    }
+
+                val amxxpc = prepareCompiler(scriptDir) ?: run {
+                    _compile.value = CompileState.Failed(
+                        "Compiler (amxxpc) unavailable.\n" +
+                            "Pick the scripting folder, or install a patch with the embedded compiler first:\n" +
+                            "• bundle compiler: $preparedCompilerPath\n" +
+                            "• next to script: ${File(scriptDir, "amxxpc").absolutePath}"
+                    )
+                    return@launch
+                }
 
                 val cmd = mutableListOf(amxxpc.absolutePath)
                 if (includeDir.isDirectory) {
                     cmd.add("-i${includeDir.absolutePath}")
                 }
+                cmd.add("-o${File(scriptDir, f.nameWithoutExtension).absolutePath}")
                 cmd.add(source.path)
                 _compile.value = CompileState.Compiling(source.name)
                 val process = ProcessBuilder(cmd)
@@ -466,6 +463,45 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                 _compile.value = CompileState.Failed(t.message ?: "Compile error")
             }
         }
+    }
+
+    private val preparedCompilerPath: String
+        get() = File(getApplication<Application>().getExternalFilesDir(null), "compiler/amxxpc").absolutePath
+
+    /**
+     * Returns a runnable amxxpc: on first call it extracts the compiler driver and
+     * kernel from the bundle (embedded or cached) into the app files dir. Returns a
+     * local amxxpc found next to the script as a fallback when the bundle has none.
+     */
+    private fun prepareCompiler(fallbackDir: File): File? {
+        val compilerDir = File(getApplication<Application>().getExternalFilesDir(null), "compiler")
+        val amxxpc = File(compilerDir, "amxxpc")
+        val kernel = File(compilerDir, "amxxpc32.so")
+
+        val bundleFiles = try {
+            loadedBundle ?: bundleProvider.loadEmbedded() ?: bundleProvider.loadCachedBundle()
+        } catch (_: Throwable) {
+            null
+        }
+        val driverBytes = bundleFiles?.files?.get("compiler/amxxpc")
+        if (driverBytes != null && driverBytes.isNotEmpty()) {
+            try {
+                compilerDir.mkdirs()
+                amxxpc.writeBytes(driverBytes)
+                amxxpc.setExecutable(true, false)
+                bundleFiles.files["compiler/amxxpc32.so"]?.let {
+                    if (it.isNotEmpty()) kernel.writeBytes(it)
+                }
+                return amxxpc
+            } catch (_: Throwable) {
+                // extraction failed; fall through to local
+            }
+        }
+        // fallback: a compiler already present in the picked/script folder
+        val root = _scriptRoot.value?.let { File(it) }
+        return listOfNotNull(root, fallbackDir)
+            .map { File(it, "amxxpc") }
+            .firstOrNull { it.exists() && it.canExecute() }
     }
 
     private companion object {

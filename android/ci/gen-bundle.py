@@ -84,6 +84,22 @@ def main():
                     "description": f"plugin {name}",
                 })
 
+    # On-device compiler (arm64): the amxxpc driver plus the libpc300 kernel it
+    # dlopens at runtime. Layed out under build-out/compiler/ by build-amxx.sh.
+    compiler_dir = os.path.join(os.path.dirname(libdir), "compiler")
+    for cname in ("amxxpc", "amxxpc32.so"):
+        p = os.path.join(compiler_dir, cname)
+        if os.path.isfile(p):
+            entries.append({
+                "source": f"compiler/{cname}",
+                "target": f"compiler/{cname}",
+                "method": "STORED",
+                "required": True,
+                "description": f"on-device compiler {cname}",
+            })
+        else:
+            print(f"WARN: missing embedded compiler {cname}, skipping")
+
     # Whole addons/ tree (configs, gamedata, stock plugins): the addons checkout
     # root IS the addons/ dir, so rel paths are bundle sources and the APK target
     # is "addons/<rel>".
@@ -120,6 +136,8 @@ def main():
                 z.write(os.path.join(addons_dir, e["source"]), e["source"])
             elif e["source"].startswith("amxmodx/plugins/"):
                 z.write(os.path.join(plugins_dir or "", os.path.basename(e["source"])), e["source"])
+            elif e["source"].startswith("compiler/"):
+                z.write(os.path.join(compiler_dir, os.path.basename(e["source"])), e["source"])
             else:
                 z.write(os.path.join(libdir, os.path.basename(e["source"])), e["source"])
 

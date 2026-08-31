@@ -415,5 +415,44 @@ PY
   done
 fi
 
+# ------------------------------------------------------------------- amxxpc (arm64)
+# Same compiler sources as the host pawncc above, but cross-compiled for Android
+# arm64 so the patcher app can compile plugins on-device straight out of the
+# bundle. Layout mirrors the AMBuilder targets:
+#   OUT/compiler/amxxpc          driver (amxx.cpp + amxxpc.cpp + Binary.cpp + zlib)
+#   OUT/compiler/amxxpc32.so     libpc300 kernel (libpawnc + sc*), PAWN_CELL_SIZE=64
+# The driver dlopens/amxxpc32.so at runtime, so both ship together. libc++ is
+# linked statically (libc++_static + libc++abi, whole-archive) to avoid having to
+# bundle libc++_shared.so and juggle LD_LIBRARY_PATH on-device.
+echo "== building arm64 amxxpc (embedded) =="
+PC_A64="$TMP/amxxpc-arm64"
+rm -rf "$PC_A64"
+mkdir -p "$PC_A64"
+PC_A64_COMMON="-std=gnu17 -O2 -fPIC -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DLINUX \
+  -DHAVE_UNISTD_H -DHAVE_INTTYPES_H -DHAVE_STDINT_H -DHAVE_ALLOCA_H -I$LIBPC"
+for s in sc1 sc2 sc3 sc4 sc5 sc6 sc7 scvars scmemfil scstate sclist sci18n \
+         pawncc libpawnc prefix memfile sp_symhash; do
+  f="$LIBPC/$s.c"
+  [ -e "$f" ] || continue
+  "$CC" $PC_A64_COMMON -DNO_MAIN -DPAWNC_DLL -D_GNU_SOURCE -c "$f" -o "$PC_A64/$s.o"
+done
+"$CXX" -shared -o "$PC_A64/amxxpc32.so" "$PC_A64"/*.o -lm
+mkdir -p "$PC_A64/zobj"
+for f in "$AMXX/third_party/zlib"/*.c; do
+  [ -e "$f" ] || continue
+  "$CC" -O2 -fPIC -c "$f" -o "$PC_A64/zobj/$(basename "${f%.c}").o"
+done
+"$CXX" -O2 -std=c++14 -DPAWN_CELL_SIZE=64 -DHAVE_I64 -DHAVE_STDINT_H \
+  -DLINUX -DAMX_ANSIONLY \
+  -I"$LIBPC" -I"$AMXX/public" -I"$AMXX/compiler/amxxpc" -I"$AMXX/third_party" \
+  -o "$PC_A64/amxxpc" "$AMXX/compiler/amxxpc"/amxxpc.cpp \
+  "$AMXX/compiler/amxxpc"/Binary.cpp "$AMXX/compiler/amxxpc"/amx.cpp \
+  "$PC_A64"/zobj/*.o \
+  -Wl,--whole-archive "$SYSROOT_LIB/libc++_static.a" -Wl,--no-whole-archive \
+  "$SYSROOT_LIB/libc++abi.a" -ldl -lm -pthread
+mkdir -p "$OUT/compiler"
+cp "$PC_A64/amxxpc" "$PC_A64/amxxpc32.so" "$OUT/compiler/"
+echo "   amxxpc -> $(ls -l "$OUT/compiler/amxxpc" | awk '{print $5}') bytes"
+
 echo "ALL_BUILT"
-ls -l "$OUT/lib/arm64-v8a/" "$OUT/plugins"
+ls -l "$OUT/lib/arm64-v8a/" "$OUT/plugins" "$OUT/compiler"
