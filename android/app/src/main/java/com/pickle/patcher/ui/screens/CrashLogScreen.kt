@@ -135,8 +135,8 @@ fun CrashLogScreen(vm: PatcherViewModel) {
                 Text("Refresh")
             }
             OutlinedButton(
-                onClick = { c?.content?.let { shareCrash(context, it) } },
-                enabled = c != null,
+                onClick = { crash?.content?.let { shareCrash(context, it) } },
+                enabled = crash != null,
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.weight(1f),
             ) {
