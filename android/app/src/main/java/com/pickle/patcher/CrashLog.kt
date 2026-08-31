@@ -29,6 +29,22 @@ object CrashLog {
         }
     }
 
+    /** All locations where a crash file may have been written, most recent first. */
+    fun candidateFiles(context: Context): List<File> = buildList {
+        add(File(context.getExternalFilesDir(null), FILE_NAME))
+        runCatching {
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        }.getOrNull()?.let { add(File(it, FILE_NAME)) }
+    }
+
+    /** Returns the newest crash file that actually exists, or null. */
+    fun latestFile(context: Context): File? =
+        candidateFiles(context).firstOrNull { it.exists() }
+
+    /** Reads the newest crash file content, trimmed, or an empty string if none. */
+    fun readLatest(context: Context): String? =
+        latestFile(context)?.takeIf { it.length() in 1..(1 shl 20) }?.readText()
+
     private fun write(context: Context, throwable: Throwable) {
         val sw = StringWriter()
         throwable.printStackTrace(PrintWriter(sw))

@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.pickle.patcher.CrashLog
 import com.pickle.patcher.data.BundleProvider
 import com.pickle.patcher.data.ReleaseRepository
 import com.pickle.patcher.lib.ApkPatcher
@@ -60,6 +61,32 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _patch = MutableStateFlow<PatchUiState>(PatchUiState.Idle)
     val patch: StateFlow<PatchUiState> = _patch.asStateFlow()
+
+    data class CrashLogEntry(
+        val fileName: String,
+        val modified: String,
+        val sizeBytes: Long,
+        val content: String,
+    )
+
+    private val _crashLog = MutableStateFlow<CrashLogEntry?>(null)
+    val crashLog: StateFlow<CrashLogEntry?> = _crashLog.asStateFlow()
+
+    fun refreshCrashLog() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val file = CrashLog.latestFile(getApplication())
+            _crashLog.value = file?.let {
+                CrashLogEntry(
+                    fileName = it.name,
+                    modified = java.text.SimpleDateFormat(
+                        "yyyy-MM-dd HH:mm:ss", java.util.Locale.US
+                    ).format(it.lastModified()),
+                    sizeBytes = it.length(),
+                    content = it.readText().take(1 shl 20),
+                )
+            }
+        }
+    }
 
     private var loadedBundle: Bundle? = null
     private var lastReport: ApkPatcher.PatchReport? = null
