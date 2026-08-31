@@ -1,0 +1,25 @@
+diff --git a/metamod/src/sys_module.cpp b/metamod/src/sys_module.cpp
+index 74d1366..4f320c6 100644
+--- a/metamod/src/sys_module.cpp
++++ b/metamod/src/sys_module.cpp
+@@ -1,4 +1,11 @@
+ #include "precompiled.h"
++#include <dlfcn.h>
++#ifndef RTLD_DEEPBIND
++#define RTLD_DEEPBIND 0
++#endif
++#ifndef RTLD_NOLOAD
++#define RTLD_NOLOAD 0
++#endif
+ 
+ const module_handle_t CSysModule::INVALID_HANDLE = (module_handle_t)0;
+ 
+@@ -153,7 +160,7 @@ module_handle_t CSysModule::load(const char *filepath)
+ 		while (fgets(buf, sizeof buf, fp)) {
+ 			uintptr_t start, end;
+ 
+-			int args = sscanf(buf, "%x-%x %128s %128s %128s %128s %255s", &start, &end, dummy, dummy, dummy, dummy, path);
++			int args = sscanf(buf, "%lx-%lx %128s %128s %128s %128s %255s", &start, &end, dummy, dummy, dummy, dummy, path);
+ 			if (args != 7) {
+ 				continue;
+ 			}

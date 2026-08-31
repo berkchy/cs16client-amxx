@@ -94,6 +94,7 @@ apply_patch "$PATCHES/amxmodx-amtl-64bit.diff"             "$SRC/amxmodx" "publi
 # AMXX core is still compiled against metamod-p's meta_api.h (METAMOD above),
 # which requires this ARM64 shim (cs16_amxx_compat.h + const SET_LOCALINFO).
 apply_patch "$PATCHES/metamod-p-aarch64.patch"            "$SRC/metamod-p"
+apply_patch "$PATCHES/metamod-fwgs-android.patch"          "$SRC/metamod-fwgs"
 
 # ----------------------------------------------------------------- toolchain
 HOST=$(uname -s | tr 'A-Z' 'a-z')
