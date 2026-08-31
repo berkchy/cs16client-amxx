@@ -86,7 +86,8 @@ def main():
 
     # On-device compiler (arm64): the amxxpc driver plus the libpc300 kernel it
     # dlopens at runtime. Layed out under build-out/compiler/ by build-amxx.sh.
-    compiler_dir = os.path.join(os.path.dirname(libdir), "compiler")
+    compiler_dir = os.path.join(
+        os.path.dirname(os.path.dirname(libdir)), "compiler")
     for cname in ("amxxpc", "amxxpc32.so"):
         p = os.path.join(compiler_dir, cname)
         if os.path.isfile(p):
