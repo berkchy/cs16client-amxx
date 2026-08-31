@@ -14,7 +14,7 @@ index ee2181f..a924fd5 100644
  elseif (WIN32)
      target_link_libraries(metamod PRIVATE psapi)
 diff --git a/metamod/src/metamod.cpp b/metamod/src/metamod.cpp
-index 06d7088..c7d0e61 100644
+index 06d7088..c3d231c 100644
 --- a/metamod/src/metamod.cpp
 +++ b/metamod/src/metamod.cpp
 @@ -64,6 +64,8 @@ void metamod_startup()
@@ -26,7 +26,42 @@ index 06d7088..c7d0e61 100644
  
  	g_metamod_active = true;
  
-@@ -401,6 +403,7 @@ bool get_function_table_old(const char* ifname, int ifvers_mm, table_t*& table,
+@@ -107,6 +109,10 @@ void metamod_startup()
+ 			META_DEBUG(2, "No config.ini file found: %s", CONFIG_INI);
+ 		}
+ 	}
++	// Android: config lives in gamedir/addons/metamod/, not APK native dir
++	if (!is_file_exists_in_gamedir(configFile) && g_GameDLL.gamedir[0]) {
++		Q_snprintf(configFile, sizeof configFile, "%s/addons/metamod/%s", g_GameDLL.gamedir, CONFIG_INI);
++	}
+ 
+ 	// Load config file
+ 	if (is_file_exists_in_gamedir(configFile))
+@@ -203,20 +209,9 @@ void metamod_startup()
+ 		}
+ 	}
+ 
+-	// Load plugins file
+-	if (!is_file_exists_in_gamedir(pluginFile)) {
+-		Q_strlcpy(pluginFile, g_config->directory());
+-
+-		// Get out of sub directory and check
+-		char *dir = Q_strrchr(pluginFile, '/');
+-		if (dir) {
+-			*dir = '\0';
+-		}
+-
+-		Q_strcat(pluginFile, "/" PLUGINS_INI);
+-		if (!is_file_exists_in_gamedir(pluginFile)) {
+-			META_DEBUG(2, "No plugins.ini file found: %s", PLUGINS_INI);
+-		}
++	// Android: plugins live in gamedir/addons/metamod/, not APK native dir
++	if (!is_file_exists_in_gamedir(pluginFile) && g_GameDLL.gamedir[0]) {
++		Q_snprintf(pluginFile, sizeof pluginFile, "%s/addons/metamod/%s", g_GameDLL.gamedir, PLUGINS_INI);
+ 	}
+ 
+ 	g_plugins = new MPluginList(pluginFile);
+@@ -401,6 +396,7 @@ bool get_function_table_old(const char* ifname, int ifvers_mm, table_t*& table,
  bool meta_load_gamedll()
  {
  	if (!setup_gamedll(&g_GameDLL)) {
@@ -34,7 +69,7 @@ index 06d7088..c7d0e61 100644
  		META_ERROR("dll: Unrecognized game: %s", g_GameDLL.name);
  		// meta_errno should be already set in lookup_game()
  		return false;
-@@ -408,6 +411,7 @@ bool meta_load_gamedll()
+@@ -408,6 +404,7 @@ bool meta_load_gamedll()
  
  	// open the game DLL
  	if (!g_GameDLL.sys_module.load(g_GameDLL.pathname)) {
