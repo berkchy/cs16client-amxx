@@ -238,9 +238,14 @@ for f in \
   obj="$TMP/metamod/$base.o"
   mkdir -p "$(dirname "$obj")"
   "$CXX" "${FLAGS[@]}" -std=gnu++98 -Wno-reserved-user-defined-literal "${CXXFLAGS[@]}" \
-    "${MM_INC[@]}" "${MM_DEFS[@]}" -c "$file" -o "$obj"
+    -fvisibility=default "${MM_INC[@]}" "${MM_DEFS[@]}" -c "$file" -o "$obj"
 done
-"$CXX" -fPIC -O2 -shared -static-libstdc++ -o "$OUT/lib/arm64-v8a/libmetamod.so" \
+# Export every metamod API symbol so the Xash gamedll loader's dlsym lookups
+# (GetEntityAPI, GiveFnptrsToDll, GetNewDLLFunctions, meta_* ...) always resolve,
+# and apply metamod-p's hotdata.ld linker script (same one as upstream LINK_LINUX).
+"$CXX" -fPIC -O2 -shared -static-libstdc++ -Wl,--export-dynamic \
+  -Wl,-T,"$METAMOD/hotdata.ld" \
+  -o "$OUT/lib/arm64-v8a/libmetamod.so" \
   "$TMP"/metamod/*.o -ldl -lm
 echo "   metamod -> $(ls -l "$OUT/lib/arm64-v8a/libmetamod.so" | awk '{print $5}') bytes"
 

@@ -466,7 +466,7 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private val preparedCompilerPath: String
-        get() = File(getApplication<Application>().getExternalFilesDir(null), "compiler/amxxpc").absolutePath
+        get() = File(getApplication<Application>().filesDir, "compiler/amxxpc").absolutePath
 
     /**
      * Returns a runnable amxxpc: on first call it extracts the compiler driver and
@@ -474,7 +474,10 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
      * local amxxpc found next to the script as a fallback when the bundle has none.
      */
     private fun prepareCompiler(fallbackDir: File): File? {
-        val compilerDir = File(getApplication<Application>().getExternalFilesDir(null), "compiler")
+        // Use the app's internal files dir (getFilesDir), not external storage:
+        // the external/emulated dir is typically mounted noexec, so an ELF written
+        // there cannot be exec'd ("permission denied" on ProcessBuilder.start()).
+        val compilerDir = File(getApplication<Application>().filesDir, "compiler")
         val amxxpc = File(compilerDir, "amxxpc")
         val kernel = File(compilerDir, "amxxpc32.so")
 
