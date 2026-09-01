@@ -193,6 +193,76 @@ relink() {
 
 # ------------------------------------------------------------------- core
 echo "== building core =="
+
+# ARM64: provide C implementations for the dynamic native helpers that are
+# only available as x86/amd64 NASM assembly in the upstream source.
+# These define: amxx_DynaInit, amxx_DynaMake, amxx_DynaCodesize, amxx_CpuSupport
+cat > "$AMXX/amxmodx/natives-arm64.c" << 'NATIVES_EOF'
+#include <stdint.h>
+#include <string.h>
+
+static void *g_gate = 0;
+
+void amxx_DynaInit(void *ptr) {
+    g_gate = ptr;
+}
+
+int amxx_DynaCodesize(void) {
+    return 52;
+}
+
+typedef int (*dyna_cb_t)(int, void*, void*);
+
+/* ARM64 trampoline (52 bytes):
+ *   stp  x29, x30, [sp, #-16]!
+ *   mov  x29, sp
+ *   mov  x2, x1          ; params -> arg3
+ *   mov  x1, x0          ; amx    -> arg2
+ *   movz x0,  #id_lo16   ; patched
+ *   movk x0,  #id_hi16, lsl #16
+ *   movz x16, #cb_lo16   ; patched
+ *   movk x16, #cb_16,  lsl #16
+ *   movk x16, #cb_32,  lsl #32
+ *   movk x16, #cb_48,  lsl #48
+ *   blr  x16
+ *   ldp  x29, x30, [sp], #16
+ *   ret
+ */
+static const uint32_t tpl[] = {
+    0xA9BE7BFD,  /* stp x29,x30,[sp,#-16]!  */
+    0x910003FD,  /* mov x29, sp             */
+    0xAA0103E2,  /* mov x2, x1              */
+    0xAA0003E1,  /* mov x1, x0              */
+    0xD2800000,  /* movz x0, #0   (id lo)   */
+    0xF2A00000,  /* movk  x0, #0, lsl#16    */
+    0xD2E00010,  /* movz x16, #0  (cb lo)   */
+    0xF2C00010,  /* movk x16,#0, lsl#16     */
+    0xF2E00010,  /* movk x16,#0, lsl#32     */
+    0xF3000010,  /* movk x16,#0, lsl#48     */
+    0xD63F0200,  /* blr  x16                */
+    0xA8C27BFD,  /* ldp x29,x30,[sp],#16    */
+    0xD65F03C0,  /* ret                     */
+};
+
+void amxx_DynaMake(char *buf, int id) {
+    uint32_t code[13];
+    memcpy(code, tpl, sizeof(code));
+    uintptr_t cb = (uintptr_t)g_gate;
+    code[4] |= ((uint32_t)(id & 0xFFFF)) << 5;
+    code[5] |= ((uint32_t)((id >> 16) & 0xFFFF)) << 5;
+    code[6]  |= ((uint32_t)(cb & 0xFFFF)) << 5;
+    code[7]  |= ((uint32_t)((cb >> 16) & 0xFFFF)) << 5;
+    code[8]  |= ((uint32_t)((cb >> 32) & 0xFFFF)) << 5;
+    code[9]  |= ((uint32_t)((cb >> 48) & 0xFFFF)) << 5;
+    memcpy(buf, code, sizeof(code));
+}
+
+int amxx_CpuSupport(void) {
+    return 1;
+}
+NATIVES_EOF
+echo "   created natives-arm64.c"
+
 for f in "$AMXX/amxmodx"/*.c "$AMXX/amxmodx"/*.cpp; do
   [ -e "$f" ] || continue
   compile_one core "$f" "" ""
