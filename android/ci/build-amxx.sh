@@ -534,10 +534,12 @@ cat > "$REAPI/version/reapi_version.inc" << 'VERINC'
 #define REAPI_VERSION_STR "3.1.0"
 VERINC
 echo "   created reapi_version.inc"
-REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -Wall -Wno-unused -Wno-sign-compare \
+REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -fpermissive -Wno-unused -Wno-sign-compare \
+  -Wno-error=narrowing -Wno-error=deprecated \
   -D_LINUX -DLINUX -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=0 \
   -DHAVE_STRONG_TYPEDEF -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
   -D_vsnprintf=vsnprintf -D_snprintf=snprintf \
+  -include algorithm -include cstdint -include cstddef \
   -I$REAPI/include -I$REAPI/include/cssdk/common -I$REAPI/include/cssdk/dlls \
   -I$REAPI/include/cssdk/engine -I$REAPI/include/cssdk/game_shared \
   -I$REAPI/include/cssdk/pm_shared -I$REAPI/include/cssdk/public \
