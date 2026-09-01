@@ -496,6 +496,19 @@ build_module csx cstrike/csx "" "" \
 echo "== building reapi module =="
 REAPI="$SRC/reapi/reapi"
 mkdir -p "$TMP/mod-reapi"
+# Patch: cssdk/osconfig.h unconditionally includes x86 SSE intrinsics
+# (smmintrin.h/xmmintrin.h) which don't exist on ARM64. Guard them.
+if [ -f "$REAPI/include/cssdk/engine/osconfig.h" ]; then
+  python3 -c "
+p='$REAPI/include/cssdk/engine/osconfig.h'
+d=open(p).read()
+if '#ifdef __arm__' not in d:
+    d=d.replace('#include <smmintrin.h>\n#include <xmmintrin.h>',
+                 '#if defined(__i386__) || defined(__x86_64__)\n#include <smmintrin.h>\n#include <xmmintrin.h>\n#endif')
+    open(p,'w').write(d)
+    print('   patched osconfig.h SSE includes for ARM64')
+"
+fi
 REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -Wall -Wno-unused -Wno-sign-compare \
   -D_LINUX -DLINUX -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=0 \
   -DHAVE_STRONG_TYPEDEF -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
