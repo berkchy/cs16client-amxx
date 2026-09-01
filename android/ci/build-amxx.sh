@@ -554,9 +554,9 @@ if os.path.exists(p):
 p = os.path.join(reapi, 'src', 'hook_callback.h')
 if os.path.exists(p):
     d=open(p).read()
-    d=d.replace(
-        'static_assert(sizeof(T) <= sizeof(int), "invalid hookchain argument size > sizeof(int)");',
-        '#if defined(__LP64__) || defined(_WIN64)\n\t// On 64-bit, args are stored by address (size_t handle), not value\n#else\n\tstatic_assert(sizeof(T) <= sizeof(int), "invalid hookchain argument size > sizeof(int)");\n#endif')
+    old_assert = 'static_assert(sizeof(T) <= sizeof(int), \"invalid hookchain argument size > sizeof(int)\");'
+    new_assert = '#if defined(__LP64__) || defined(_WIN64)\\n\\t// On 64-bit, args are stored by address (size_t handle), not value\\n#else\\n\\tstatic_assert(sizeof(T) <= sizeof(int), \"invalid hookchain argument size > sizeof(int)\");\\n#endif'
+    d=d.replace(old_assert, new_assert)
     open(p,'w').write(d)
 # natives_helper.h: guard operator size_t() when ULONG==size_t
 p = os.path.join(reapi, 'src', 'natives', 'natives_helper.h')
