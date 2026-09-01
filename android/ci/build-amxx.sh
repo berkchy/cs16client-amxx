@@ -536,19 +536,19 @@ VERINC
 echo "   created reapi_version.inc"
 # Fix unqualified min() call and ULONG/size_t dedup for ARM64
 python3 -c "
-import os, sys
+import os, sys, re
 reapi = sys.argv[1]
 # hook_callback.h: min() -> std::min()
 p = os.path.join(reapi, 'src', 'hook_callback.h')
 if os.path.exists(p):
     d=open(p).read()
-    d=d.replace('args_count = min(arg_count, MAX_HOOKCHAIN_ARGS)', 'args_count = std::min(arg_count, MAX_HOOKCHAIN_ARGS)')
+    d=re.sub(r'(\b)min\(', r'\1std::min(', d)
     open(p,'w').write(d)
 # natives_helper.h: guard operator size_t() when ULONG==size_t
 p = os.path.join(reapi, 'src', 'natives', 'natives_helper.h')
 if os.path.exists(p):
     d=open(p).read()
-    old='\toperator size_t() const\n\t{\n\t\treturn size_t(m_value);\n\t}'
+    old='operator size_t() const\n\t{\n\t\treturn size_t(m_value);\n\t}'
     new='#if ULONG_MAX != SIZE_MAX\n\toperator size_t() const\n\t{\n\t\treturn size_t(m_value);\n\t}\n#endif'
     d=d.replace(old,new)
     open(p,'w').write(d)
