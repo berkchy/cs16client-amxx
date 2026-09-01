@@ -18,7 +18,7 @@ VERSION = os.environ.get("RELEASE_VERSION", "1.10.0-dev")
 
 MODULES = [
     "cstrike", "csx", "engine", "fakemeta", "fun", "geoip",
-    "json", "nvault", "regex", "sockets", "sqlite",
+    "json", "nvault", "reapi", "regex", "sockets", "sqlite",
 ]
 
 
@@ -57,6 +57,16 @@ def main():
             "method": "STORED",
             "required": True,
             "description": "Metamod as gamedll (masks libyapb_android_arm64.so)",
+        })
+    # Actual YaPB bot .so — loaded by metamod via plugins.ini
+    yapb_so = os.path.join(libdir, "libyapb.so")
+    if os.path.exists(yapb_so):
+        entries.append({
+            "source": "lib/arm64-v8a/libyapb.so",
+            "target": "lib/arm64-v8a/libyapb.so",
+            "method": "STORED",
+            "required": False,
+            "description": "YaPB bot plugin",
         })
     for mod in MODULES:
         p = os.path.join(libdir, f"lib{mod}_amxx_amd64.so")
