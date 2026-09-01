@@ -14,19 +14,44 @@ index ee2181f..a924fd5 100644
  elseif (WIN32)
      target_link_libraries(metamod PRIVATE psapi)
 diff --git a/metamod/src/metamod.cpp b/metamod/src/metamod.cpp
-index 06d7088..ae53b31 100644
+index 06d7088..09eb201 100644
 --- a/metamod/src/metamod.cpp
 +++ b/metamod/src/metamod.cpp
-@@ -64,6 +64,8 @@ void metamod_startup()
+@@ -1,6 +1,7 @@
+ #include "precompiled.h"
+ #include "build_info.h"
+ #include <type_traits>
++#include <unistd.h>
+ 
+ cvar_t g_meta_version = { "metamod_version", APP_VERSION, FCVAR_SERVER, 0, nullptr };
+ 
+@@ -64,6 +65,25 @@ void metamod_startup()
  	if (!meta_init_gamedll()) {
  		Sys_Error("Failure to init game DLL; exiting...");
  	}
 +	META_CONS("== diag: gamedir=%s name=%s", g_GameDLL.gamedir, g_GameDLL.name);
 +	META_CONS("== diag: configdir=%s", g_config->directory());
++
++	// Android: amxmodx uses relative paths (e.g. "cstrike/addons/...") via
++	// build_pathname_r which stat()/fopen() resolve from CWD.  Ensure CWD is
++	// the parent of gamedir (the game root) so those relative paths work.
++	if (g_GameDLL.gamedir[0]) {
++		char cwd_buf[MAX_PATH];
++		Q_strlcpy(cwd_buf, g_GameDLL.gamedir);
++		char *last_slash = Q_strrchr(cwd_buf, '/');
++		if (last_slash) {
++			*last_slash = '\0';
++			if (chdir(cwd_buf) == 0) {
++				META_CONS("== diag: chdir(%s) OK", cwd_buf);
++			} else {
++				META_CONS("== diag: chdir(%s) FAILED: %s", cwd_buf, strerror(errno));
++			}
++		}
++	}
  
  	g_metamod_active = true;
  
-@@ -107,6 +109,10 @@ void metamod_startup()
+@@ -107,6 +127,10 @@ void metamod_startup()
  			META_DEBUG(2, "No config.ini file found: %s", CONFIG_INI);
  		}
  	}
@@ -37,7 +62,7 @@ index 06d7088..ae53b31 100644
  
  	// Load config file
  	if (is_file_exists_in_gamedir(configFile))
-@@ -204,19 +210,8 @@ void metamod_startup()
+@@ -204,19 +228,8 @@ void metamod_startup()
  	}
  
  	// Load plugins file
@@ -59,7 +84,7 @@ index 06d7088..ae53b31 100644
  	}
  
  	g_plugins = new MPluginList(pluginFile);
-@@ -401,6 +396,7 @@ bool get_function_table_old(const char* ifname, int ifvers_mm, table_t*& table,
+@@ -401,6 +414,7 @@ bool get_function_table_old(const char* ifname, int ifvers_mm, table_t*& table,
  bool meta_load_gamedll()
  {
  	if (!setup_gamedll(&g_GameDLL)) {
@@ -67,7 +92,7 @@ index 06d7088..ae53b31 100644
  		META_ERROR("dll: Unrecognized game: %s", g_GameDLL.name);
  		// meta_errno should be already set in lookup_game()
  		return false;
-@@ -408,6 +404,7 @@ bool meta_load_gamedll()
+@@ -408,6 +422,7 @@ bool meta_load_gamedll()
  
  	// open the game DLL
  	if (!g_GameDLL.sys_module.load(g_GameDLL.pathname)) {
