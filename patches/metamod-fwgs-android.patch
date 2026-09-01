@@ -205,7 +205,11 @@ index 74d1366..0fcd323 100644
 +					META_CONS("== load: fallback1(%s) -> %s", full, m_handle ? "OK" : getloaderror());
 +				}
 +				if (!m_handle) {
-+					Q_sprintf(full, "lib%s", cp);
++					if (g_self_dir[0]) {
++						Q_sprintf(full, "%s/lib%s", g_self_dir, cp);
++					} else {
++						Q_sprintf(full, "lib%s", cp);
++					}
 +					m_handle = dlopen(full, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
 +					if (m_handle) m_free = true;
 +					META_CONS("== load: fallback2(%s) -> %s", full, m_handle ? "OK" : getloaderror());
