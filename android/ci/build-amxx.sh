@@ -639,7 +639,8 @@ REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -fpermissive -w \
   -I$REAPI/include/metamod -I$REAPI/src -I$REAPI/src/mods -I$REAPI/src/natives \
   -I$REAPI/version -I$REAPI/common"
 REAPI_SRCS=""
-for f in "$REAPI"/src/*.cpp "$REAPI"/src/natives/*.cpp "$REAPI"/common/*.cpp \
+for f in "$REAPI"/src/*.cpp "$REAPI"/src/natives/*.cpp "$REAPI"/src/mods/*.cpp \
+         "$REAPI"/common/*.cpp \
          "$REAPI"/include/cssdk/public/interface.cpp; do
   [ -e "$f" ] || continue
   bn=$(basename "$f" .cpp)
