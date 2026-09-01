@@ -566,16 +566,18 @@ if os.path.exists(p):
     new='#if ULONG_MAX != SIZE_MAX\n\toperator size_t() const\n\t{\n\t\treturn size_t(m_value);\n\t}\n#endif'
     d=d.replace(old,new)
     open(p,'w').write(d)
-# hook_list.cpp: guard ULONG overload when ULONG==size_t on ARM64
+# hook_list.cpp: on Linux ARM64, ULONG==size_t causing redefinition.
+# Use conditional: on _WIN64 (where ULONG!=size_t), define both; else just size_t.
 p = os.path.join(reapi, 'src', 'hook_list.cpp')
 if os.path.exists(p):
     d=open(p).read()
     d=d.replace(
-        'inline size_t getFwdParamType(void(*)(ULONG))',
-        '#if ULONG_MAX != SIZE_MAX\ninline size_t getFwdParamType(void(*)(ULONG))')
-    # close the guard after the ULONG line
-    d=d.replace('{ return FP_CELL;   }\ninline size_t getFwdParamType(void(*)(bool))',
-                '{ return FP_CELL;   }\n#endif\ninline size_t getFwdParamType(void(*)(bool))')
+        'inline size_t getFwdParamType(void(*)(ULONG))                   { return FP_CELL;   }',
+        '#if defined(_WIN64)\ninline size_t getFwdParamType(void(*)(ULONG))                   { return FP_CELL;   }\n#endif')
+    # Add a generic fallback for any unmatched types (e.g. unsigned on ARM64)
+    d=d.replace(
+        'inline size_t getFwdParamType(void(*)(float))                   { return FP_FLOAT;  }',
+        'template<typename T>\ninline size_t getFwdParamType(void(*)(T))                      { return FP_CELL;   }\ninline size_t getFwdParamType(void(*)(float))                   { return FP_FLOAT;  }')
     open(p,'w').write(d)
 print('   patched reapi sources for ARM64')
 " "$REAPI"
