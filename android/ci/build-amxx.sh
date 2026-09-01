@@ -103,7 +103,36 @@ src = sys.argv[1]
 p = os.path.join(src, "amxmodx/compiler/amxxpc/amxxpc.cpp")
 data = open(p, encoding="utf-8").read()
 old = '\tHINSTANCE lib = NULL;\n\tdlopen("libm.so", RTLD_NOW | RTLD_GLOBAL);\n\tif (FileExists("./amxxpc32.so"))\n\t\tlib = dlmount("./amxxpc32.so");\n\telse\n\t\tlib = dlmount("amxxpc32.so");'
-new = '\tHINSTANCE lib = NULL;\n\tdlopen("libm.so", RTLD_NOW | RTLD_GLOBAL);\n\tif (FileExists("./amxxpc32.so"))\n\t\tlib = dlmount("./amxxpc32.so");\n\telse if (FileExists("./libamxxpc32.so"))\n\t\tlib = dlmount("./libamxxpc32.so");\n\telse if (FileExists("libamxxpc32.so"))\n\t\tlib = dlmount("libamxxpc32.so");\n\telse\n\t\tlib = dlmount("amxxpc32.so");'
+new = (
+    '\tHINSTANCE lib = NULL;\n'
+    '\tdlopen("libm.so", RTLD_NOW | RTLD_GLOBAL);\n'
+    '\t{\n'
+    '\t\t/* Android: resolve library path relative to this binary */\n'
+    '\t\tchar selfpath[4096] = "./";\n'
+    '\t\tssize_t len = readlink("/proc/self/exe", selfpath, sizeof(selfpath) - 1);\n'
+    '\t\tif (len > 0) {\n'
+    '\t\t\tselfpath[len] = \'\\0\';\n'
+    '\t\t\tfor (int i = len - 1; i > 0; i--)\n'
+    '\t\t\t\tif (selfpath[i] == \'/\') { selfpath[i] = \'\\0\'; break; }\n'
+    '\t\t}\n'
+    '\t\t/* Try: <bindir>/libamxxpc32.so, <bindir>/amxxpc32.so, ./libamxxpc32.so, ./amxxpc32.so */\n'
+    '\t\tchar fullpath[4096];\n'
+    '\t\tsnprintf(fullpath, sizeof(fullpath), "%s/libamxxpc32.so", selfpath);\n'
+    '\t\tif (FileExists(fullpath))\n'
+    '\t\t\tlib = dlmount(fullpath);\n'
+    '\t\telse {\n'
+    '\t\t\tsnprintf(fullpath, sizeof(fullpath), "%s/amxxpc32.so", selfpath);\n'
+    '\t\t\tif (FileExists(fullpath))\n'
+    '\t\t\t\tlib = dlmount(fullpath);\n'
+    '\t\t\telse if (FileExists("./libamxxpc32.so"))\n'
+    '\t\t\t\tlib = dlmount("./libamxxpc32.so");\n'
+    '\t\t\telse if (FileExists("./amxxpc32.so"))\n'
+    '\t\t\t\tlib = dlmount("./amxxpc32.so");\n'
+    '\t\t\telse\n'
+    '\t\t\t\tlib = dlmount("amxxpc32.so");\n'
+    '\t\t}\n'
+    '\t}\n'
+)
 if old in data:
     open(p, "w", encoding="utf-8").write(data.replace(old, new))
     print("patched amxxpc for lib prefix")
@@ -113,6 +142,316 @@ else:
         open(p, "w", encoding="utf-8").write(data)
         print("patched amxxpc (fallback)")
 PYEOF
+fi
+
+# MemoryUtils: add ELF64 support so ResolveSymbol works on arm64.
+# The upstream code only handles Elf32_Ehdr/Shdr/Sym which crashes on 64-bit.
+if [ -f "$SRC/amxmodx/public/memtools/MemoryUtils.cpp" ]; then
+  python3 - "$SRC" <<'PYEOF2' || true
+import sys, os
+src = sys.argv[1]
+p = os.path.join(src, "amxmodx/public/memtools/MemoryUtils.cpp")
+data = open(p, encoding="utf-8").read()
+# Replace the entire ELF parsing section in ResolveSymbol for the Linux path.
+# We insert an ELF class check and branch to 32-bit or 64-bit parsing.
+old_block = """\tstruct link_map *dlmap;
+\tstruct stat dlstat;
+\tint dlfile;
+\tuintptr_t map_base;
+\tElf32_Ehdr *file_hdr;
+\tElf32_Shdr *sections, *shstrtab_hdr, *symtab_hdr, *strtab_hdr;
+\tElf32_Sym *symtab;
+\tconst char *shstrtab, *strtab;
+\tuint16_t section_count;
+\tuint32_t symbol_count;
+\tLibSymbolTable *libtable;
+\tSymbolTable *table;
+\tSymbol *symbol_entry;
+
+\tdlmap = (struct link_map *)handle;
+\tsymtab_hdr = NULL;
+\tstrtab_hdr = NULL;
+\ttable = NULL;
+\t
+\t/* See if we already have a symbol table for this library */
+\tfor (size_t i = 0; i < m_SymTables.length(); i++)
+\t{
+\t\tlibtable = m_SymTables[i];
+\t\tif (libtable->lib_base == dlmap->l_addr)
+\t\t{
+\t\t\ttable = &libtable->table;
+\t\t\tbreak;
+\t\t}
+\t}
+
+\t/* If we don't have a symbol table for this library, then create one */
+\tif (table == NULL)
+\t{
+\t\tlibtable = new LibSymbolTable();
+\t\tlibtable->table.Initialize();
+\t\tlibtable->lib_base = dlmap->l_addr;
+\t\tlibtable->last_pos = 0;
+\t\ttable = &libtable->table;
+\t\tm_SymTables.append(libtable);
+\t}
+
+\t/* See if the symbol is already cached in our table */
+\tsymbol_entry = table->FindSymbol(symbol, strlen(symbol));
+\tif (symbol_entry != NULL)
+\t{
+\t\treturn symbol_entry->address;
+\t}
+
+\t/* If symbol isn't in our table, then we have open the actual library */
+\tdlfile = open(dlmap->l_name, O_RDONLY);
+\tif (dlfile == -1 || fstat(dlfile, &dlstat) == -1)
+\t{
+\t\tclose(dlfile);
+\t\treturn NULL;
+\t}
+
+\t/* Map library file into memory */
+\tfile_hdr = (Elf32_Ehdr *)mmap(NULL, dlstat.st_size, PROT_READ, MAP_PRIVATE, dlfile, 0);
+\tmap_base = (uintptr_t)file_hdr;
+\tif (file_hdr == MAP_FAILED)
+\t{
+\t\tclose(dlfile);
+\t\treturn NULL;
+\t}
+\tclose(dlfile);
+
+\tif (file_hdr->e_shoff == 0 || file_hdr->e_shstrndx == SHN_UNDEF)
+\t{
+\t\tmunmap(file_hdr, dlstat.st_size);
+\t\treturn NULL;
+\t}
+
+\tsections = (Elf32_Shdr *)(map_base + file_hdr->e_shoff);
+\tsection_count = file_hdr->e_shnum;
+\t/* Get ELF section header string table */
+\tshstrtab_hdr = &sections[file_hdr->e_shstrndx];
+\tshstrtab = (const char *)(map_base + shstrtab_hdr->sh_offset);
+
+\t/* Iterate sections while looking for ELF symbol table and string table */
+\tfor (uint16_t i = 0; i < section_count; i++)
+\t{
+\t\tElf32_Shdr &hdr = sections[i];
+\t\tconst char *section_name = shstrtab + hdr.sh_name;
+
+\t\tif (strcmp(section_name, ".symtab") == 0)
+\t\t{
+\t\t\tsymtab_hdr = &hdr;
+\t\t}
+\t\telse if (strcmp(section_name, ".strtab") == 0)
+\t\t{
+\t\t\tstrtab_hdr = &hdr;
+\t\t}
+\t}
+
+\t/* Uh oh, we don't have a symbol table or a string table */
+\tif (symtab_hdr == NULL || strtab_hdr == NULL)
+\t{
+\t\tmunmap(file_hdr, dlstat.st_size);
+\t\treturn NULL;
+\t}
+
+\tsymtab = (Elf32_Sym *)(map_base + symtab_hdr->sh_offset);
+\tstrtab = (const char *)(map_base + strtab_hdr->sh_offset);
+\tsymbol_count = symtab_hdr->sh_size / symtab_hdr->sh_entsize;
+
+\t/* Iterate symbol table starting from the position we were at last time */
+\tfor (uint32_t i = libtable->last_pos; i < symbol_count; i++)
+\t{
+\t\tElf32_Sym &sym = symtab[i];
+\t\tunsigned char sym_type = ELF32_ST_TYPE(sym.st_info);
+\t\tconst char *sym_name = strtab + sym.st_name;
+\t\tSymbol *cur_sym;
+
+\t\t/* Skip symbols that are undefined or do not refer to functions or objects */
+\t\tif (sym.st_shndx == SHN_UNDEF || (sym_type != STT_FUNC && sym_type != STT_OBJECT))
+\t\t{
+\t\t\tcontinue;
+\t\t}
+
+\t\t/* Caching symbols as we go along */
+\t\tcur_sym = table->InternSymbol(sym_name, strlen(sym_name), (void *)(dlmap->l_addr + sym.st_value));
+\t\tif (strcmp(symbol, sym_name) == 0)
+\t\t{
+\t\t\tsymbol_entry = cur_sym;
+\t\t\tlibtable->last_pos = ++i;
+\t\t\tbreak;
+\t\t}
+\t}
+
+\tmunmap(file_hdr, dlstat.st_size);
+\treturn symbol_entry ? symbol_entry->address : NULL;"""
+
+new_block = """\tstruct link_map *dlmap;
+\tstruct stat dlstat;
+\tint dlfile;
+\tuintptr_t map_base;
+\tunsigned char *raw_hdr;
+\tLibSymbolTable *libtable;
+\tSymbolTable *table;
+\tSymbol *symbol_entry;
+
+\tdlmap = (struct link_map *)handle;
+\ttable = NULL;
+
+\t/* See if we already have a symbol table for this library */
+\tfor (size_t i = 0; i < m_SymTables.length(); i++)
+\t{
+\t\tlibtable = m_SymTables[i];
+\t\tif (libtable->lib_base == dlmap->l_addr)
+\t\t{
+\t\t\ttable = &libtable->table;
+\t\t\tbreak;
+\t\t}
+\t}
+
+\t/* If we don't have a symbol table for this library, then create one */
+\tif (table == NULL)
+\t{
+\t\tlibtable = new LibSymbolTable();
+\t\tlibtable->table.Initialize();
+\t\tlibtable->lib_base = dlmap->l_addr;
+\t\tlibtable->last_pos = 0;
+\t\ttable = &libtable->table;
+\t\tm_SymTables.append(libtable);
+\t}
+
+\t/* See if the symbol is already cached in our table */
+\tsymbol_entry = table->FindSymbol(symbol, strlen(symbol));
+\tif (symbol_entry != NULL)
+\t{
+\t\treturn symbol_entry->address;
+\t}
+
+\t/* If symbol isn't in our table, then we have to open the actual library */
+\tdlfile = open(dlmap->l_name, O_RDONLY);
+\tif (dlfile == -1 || fstat(dlfile, &dlstat) == -1)
+\t{
+\t\tif (dlfile != -1) close(dlfile);
+\t\treturn NULL;
+\t}
+
+\traw_hdr = (unsigned char *)mmap(NULL, dlstat.st_size, PROT_READ, MAP_PRIVATE, dlfile, 0);
+\tmap_base = (uintptr_t)raw_hdr;
+\tif (raw_hdr == (unsigned char *)MAP_FAILED)
+\t{
+\t\tclose(dlfile);
+\t\treturn NULL;
+\t}
+\tclose(dlfile);
+
+\t/* Detect ELF class (32 vs 64) from e_ident[EI_CLASS] */
+\tif (raw_hdr[4] == ELFCLASS64)
+\t{
+\t\tElf64_Ehdr *hdr64 = (Elf64_Ehdr *)raw_hdr;
+\t\tif (hdr64->e_shoff == 0 || hdr64->e_shstrndx == SHN_UNDEF)
+\t\t{
+\t\t\tmunmap(raw_hdr, dlstat.st_size);
+\t\t\treturn NULL;
+\t\t}
+
+\t\tElf64_Shdr *sections64 = (Elf64_Shdr *)(map_base + hdr64->e_shoff);
+\t\tElf64_Shdr *symtab_hdr = NULL, *strtab_hdr = NULL;
+\t\tconst char *shstrtab = (const char *)(map_base + sections64[hdr64->e_shstrndx].sh_offset);
+
+\t\tfor (uint16_t i = 0; i < hdr64->e_shnum; i++)
+\t\t{
+\t\t\tconst char *name = shstrtab + sections64[i].sh_name;
+\t\t\tif (strcmp(name, ".symtab") == 0) symtab_hdr = &sections64[i];
+\t\t\telse if (strcmp(name, ".strtab") == 0) strtab_hdr = &sections64[i];
+\t\t}
+
+\t\tif (symtab_hdr == NULL || strtab_hdr == NULL)
+\t\t{
+\t\t\tmunmap(raw_hdr, dlstat.st_size);
+\t\t\treturn NULL;
+\t\t}
+
+\t\tElf64_Sym *symtab64 = (Elf64_Sym *)(map_base + symtab_hdr->sh_offset);
+\t\tconst char *strtab = (const char *)(map_base + strtab_hdr->sh_offset);
+\t\tuint32_t symbol_count = symtab_hdr->sh_size / symtab_hdr->sh_entsize;
+
+\t\tfor (uint32_t i = libtable->last_pos; i < symbol_count; i++)
+\t\t{
+\t\t\tElf64_Sym &sym = symtab64[i];
+\t\t\tunsigned char sym_type = ELF64_ST_TYPE(sym.st_info);
+\t\t\tconst char *sym_name = strtab + sym.st_name;
+
+\t\t\tif (sym.st_shndx == SHN_UNDEF || (sym_type != STT_FUNC && sym_type != STT_OBJECT))
+\t\t\t\tcontinue;
+
+\t\t\tSymbol *cur_sym = table->InternSymbol(sym_name, strlen(sym_name), (void *)(dlmap->l_addr + sym.st_value));
+\t\t\tif (strcmp(symbol, sym_name) == 0)
+\t\t\t{
+\t\t\t\tsymbol_entry = cur_sym;
+\t\t\t\tlibtable->last_pos = ++i;
+\t\t\t\tbreak;
+\t\t\t}
+\t\t}
+\t}
+\telse
+\t{
+\t\tElf32_Ehdr *hdr32 = (Elf32_Ehdr *)raw_hdr;
+\t\tif (hdr32->e_shoff == 0 || hdr32->e_shstrndx == SHN_UNDEF)
+\t\t{
+\t\t\tmunmap(raw_hdr, dlstat.st_size);
+\t\t\treturn NULL;
+\t\t}
+
+\t\tElf32_Shdr *sections32 = (Elf32_Shdr *)(map_base + hdr32->e_shoff);
+\t\tElf32_Shdr *symtab_hdr = NULL, *strtab_hdr = NULL;
+\t\tconst char *shstrtab = (const char *)(map_base + sections32[hdr32->e_shstrndx].sh_offset);
+
+\t\tfor (uint16_t i = 0; i < hdr32->e_shnum; i++)
+\t\t{
+\t\t\tconst char *name = shstrtab + sections32[i].sh_name;
+\t\t\tif (strcmp(name, ".symtab") == 0) symtab_hdr = &sections32[i];
+\t\t\telse if (strcmp(name, ".strtab") == 0) strtab_hdr = &sections32[i];
+\t\t}
+
+\t\tif (symtab_hdr == NULL || strtab_hdr == NULL)
+\t\t{
+\t\t\tmunmap(raw_hdr, dlstat.st_size);
+\t\t\treturn NULL;
+\t\t}
+
+\t\tElf32_Sym *symtab32 = (Elf32_Sym *)(map_base + symtab_hdr->sh_offset);
+\t\tconst char *strtab = (const char *)(map_base + strtab_hdr->sh_offset);
+\t\tuint32_t symbol_count = symtab_hdr->sh_size / symtab_hdr->sh_entsize;
+
+\t\tfor (uint32_t i = libtable->last_pos; i < symbol_count; i++)
+\t\t{
+\t\t\tElf32_Sym &sym = symtab32[i];
+\t\t\tunsigned char sym_type = ELF32_ST_TYPE(sym.st_info);
+\t\t\tconst char *sym_name = strtab + sym.st_name;
+
+\t\t\tif (sym.st_shndx == SHN_UNDEF || (sym_type != STT_FUNC && sym_type != STT_OBJECT))
+\t\t\t\tcontinue;
+
+\t\t\tSymbol *cur_sym = table->InternSymbol(sym_name, strlen(sym_name), (void *)(dlmap->l_addr + sym.st_value));
+\t\t\tif (strcmp(symbol, sym_name) == 0)
+\t\t\t{
+\t\t\t\tsymbol_entry = cur_sym;
+\t\t\t\tlibtable->last_pos = ++i;
+\t\t\t\tbreak;
+\t\t\t}
+\t\t}
+\t}
+
+\tmunmap(raw_hdr, dlstat.st_size);
+\treturn symbol_entry ? symbol_entry->address : NULL;"""
+
+if old_block in data:
+    data = data.replace(old_block, new_block)
+    open(p, "w", encoding="utf-8").write(data)
+    print("patched MemoryUtils for ELF64 support")
+else:
+    print("WARNING: MemoryUtils patch target not found (may already be patched)")
+PYEOF2
 fi
 
 # ----------------------------------------------------------------- toolchain
