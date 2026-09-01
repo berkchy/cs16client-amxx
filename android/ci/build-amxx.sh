@@ -534,6 +534,29 @@ cat > "$REAPI/version/reapi_version.inc" << 'VERINC'
 #define REAPI_VERSION_STR "3.1.0"
 VERINC
 echo "   created reapi_version.inc"
+# Generate appversion.h (needed by meta_api.cpp)
+cat > "$REAPI/version/appversion.h" << 'APPVER'
+#ifndef __APPVERSION_H__
+#define __APPVERSION_H__
+
+// This file is generated automatically.
+// Don't edit it.
+
+// Version defines
+#define APP_VERSION "3.1.0-dev"
+#define APP_VERSION_C 3,1,0,0
+#define APP_VERSION_STRD "3.1.0.0"
+#define APP_VERSION_FLAGS 0x0L
+
+#define APP_COMMIT_DATE "Jan 01 2026"
+#define APP_COMMIT_TIME "00:00:00"
+
+#define APP_COMMIT_SHA "0000000"
+#define APP_COMMIT_URL "https://github.com/rehlds/ReAPI"
+
+#endif //__APPVERSION_H__
+APPVER
+echo "   created appversion.h"
 # Fix unqualified min() call and ULONG/size_t dedup for ARM64
 python3 -c "
 import os, sys, re
