@@ -492,23 +492,31 @@ build_module csx cstrike/csx "" "" \
 # ----------------------------------------------------------------- reapi
 # ReAPI AMXX module (rehlds/ReAPI) — provides ReGameDLL/ReHLDS API natives.
 # CMakeLists.txt hardcodes i32/MSSE so we compile by hand with NDK.
+# NOTE: ReAPI ships its own amxxmodule.h so we must NOT include the AMXX SDK.
 echo "== building reapi module =="
 REAPI="$SRC/reapi/reapi"
 mkdir -p "$TMP/mod-reapi"
-REAPI_INC="-I$REAPI/include -I$REAPI/include/cssdk/common -I$REAPI/include/cssdk/dlls \
+REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -Wall -Wno-unused -Wno-sign-compare \
+  -D_LINUX -DLINUX -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=0 \
+  -DHAVE_STRONG_TYPEDEF -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
+  -D_vsnprintf=vsnprintf -D_snprintf=snprintf \
+  -I$REAPI/include -I$REAPI/include/cssdk/common -I$REAPI/include/cssdk/dlls \
   -I$REAPI/include/cssdk/engine -I$REAPI/include/cssdk/game_shared \
   -I$REAPI/include/cssdk/pm_shared -I$REAPI/include/cssdk/public \
   -I$REAPI/include/metamod -I$REAPI/src -I$REAPI/src/mods -I$REAPI/src/natives \
   -I$REAPI/version -I$REAPI/common"
-REAPI_DEFS="-D_LINUX -DLINUX -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=0 \
-  -DHAVE_STRONG_TYPEDEF -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
-  -D_vsnprintf=vsnprintf -D_snprintf=snprintf"
+REAPI_SRCS=""
 for f in "$REAPI"/src/*.cpp "$REAPI"/src/natives/*.cpp "$REAPI"/common/*.cpp \
          "$REAPI"/include/cssdk/public/interface.cpp; do
   [ -e "$f" ] || continue
-  compile_one "mod-reapi" "$f" "$REAPI_INC" "$REAPI_DEFS"
+  bn=$(basename "$f" .cpp)
+  "$CXX" $REAPI_BASEFLAGS -c "$f" -o "$TMP/mod-reapi/$bn.o"
+  REAPI_SRCS="$REAPI_SRCS $TMP/mod-reapi/$bn.o"
 done
-relink "$OUT/lib/arm64-v8a/libreapi_amxx_amd64.so" "$TMP"/mod-reapi/*.o
+"$CXX" -shared -o "$OUT/lib/arm64-v8a/libreapi_amxx_amd64.so" $REAPI_SRCS \
+  -static-libstdc++ -static-libgcc \
+  -Wl,--whole-archive "$SYSROOT_LIB/libc++_static.a" -Wl,--no-whole-archive \
+  "$SYSROOT_LIB/libc++abi.a" -ldl -lm
 echo "   reapi -> $(ls -l "$OUT/lib/arm64-v8a/libreapi_amxx_amd64.so" | awk '{print $5}') bytes"
 
 # ------------------------------------------------------------------- yapb
