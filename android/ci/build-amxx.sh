@@ -171,6 +171,33 @@ print('   MemoryUtils patched for Android')
   fi
 fi
 
+# CDetour: x86-only trampoline generator crashes on ARM64 (copy_bytes/check_thunks
+# decode x86 instructions).  Make CreateDetour return false on ARM64 so the
+# cstrike module loads without hooks (offsets/sigs still work).
+if [ -f "$SRC/amxmodx/public/memtools/CDetour/detours.cpp" ]; then
+  DT="$SRC/amxmodx/public/memtools/CDetour/detours.cpp"
+  if ! grep -q '__aarch64__' "$DT"; then
+    echo "   patching CDetour detours.cpp for ARM64"
+    python3 -c "
+import sys
+p = sys.argv[1]
+d = open(p).read()
+d = d.replace(
+    '\treturn false;\n\t}*/\n\n\tif (address != NULL)',
+    '\treturn false;\n\t}*/\n\n#if defined(__aarch64__)\n\t/* x86 trampoline generator is not valid on ARM64 */\n\treturn false;\n#else\n\tif (address != NULL)'
+)
+d = d.replace(
+    '\treturn true;\n}\n\nvoid CDetour::DeleteDetour()',
+    '\treturn true;\n#endif /* !__aarch64__ */\n}\n\nvoid CDetour::DeleteDetour()'
+)
+open(p,'w').write(d)
+print('   CDetour patched for ARM64')
+" "$DT"
+  else
+    echo "   CDetour already patched"
+  fi
+fi
+
 # ----------------------------------------------------------------- toolchain
 HOST=$(uname -s | tr 'A-Z' 'a-z')
 if [ "$HOST" = darwin ]; then HOST=mac; fi
