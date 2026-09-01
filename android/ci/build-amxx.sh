@@ -499,7 +499,7 @@ REAPI_INC="-I$REAPI/include -I$REAPI/include/cssdk/common -I$REAPI/include/cssdk
   -I$REAPI/include/cssdk/engine -I$REAPI/include/cssdk/game_shared \
   -I$REAPI/include/cssdk/pm_shared -I$REAPI/include/cssdk/public \
   -I$REAPI/include/metamod -I$REAPI/src -I$REAPI/src/mods -I$REAPI/src/natives \
-  -I$REAPI/version -I$REAPI/common -I$AMXX/public -I$AMXX/public/sdk"
+  -I$REAPI/version -I$REAPI/common"
 REAPI_DEFS="-D_LINUX -DLINUX -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=0 \
   -DHAVE_STRONG_TYPEDEF -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
   -D_vsnprintf=vsnprintf -D_snprintf=snprintf"
