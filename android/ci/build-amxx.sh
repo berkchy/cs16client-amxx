@@ -602,6 +602,24 @@ if os.path.exists(p):
         'inline size_t getFwdParamType(void(*)(float))                   { return FP_FLOAT;  }',
         'template<typename T>\ninline size_t getFwdParamType(void(*)(T))                      { return FP_CELL;   }\ninline size_t getFwdParamType(void(*)(float))                   { return FP_FLOAT;  }')
     open(p,'w').write(d)
+# Fix pointer-to-int truncation in ReAPI: cast via uintptr_t
+# natives_members.cpp, natives_misc.cpp etc.
+import glob
+for f in glob.glob(os.path.join(reapi, 'src', 'natives', '*.cpp')):
+    d=open(f).read()
+    # (cell)get_member_direct<...> -> (cell)(uintptr_t)get_member_direct<...>
+    import re as _re
+    d2 = _re.sub(r'\(cell\)(get_member_direct<)', r'(cell)(uintptr_t)\1', d)
+    if d2 != d:
+        open(f,'w').write(d2)
+        print(f'   patched {os.path.basename(f)} pointer casts')
+# Also add -Wno-int-to-pointer-cast is not enough; need uintptr_t casts globally
+# hook_list.cpp: fix all (cell) casts that truncate pointers
+p = os.path.join(reapi, 'src', 'hook_list.cpp')
+if os.path.exists(p):
+    d=open(p).read()
+    d = _re.sub(r'\(cell\)(get_member_direct<)', r'(cell)(uintptr_t)\1', d)
+    open(p,'w').write(d)
 print('   patched reapi sources for ARM64')
 " "$REAPI"
 REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -fpermissive -w \
