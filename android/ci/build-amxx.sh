@@ -509,6 +509,31 @@ if '#ifdef __arm__' not in d:
     print('   patched osconfig.h SSE includes for ARM64')
 "
 fi
+# Patch: mathlib.h uses SSE intrinsics for M_sqrt; use standard sqrtf/sqrt on ARM64.
+if [ -f "$REAPI/include/cssdk/common/mathlib.h" ]; then
+  python3 -c "
+p='$REAPI/include/cssdk/common/mathlib.h'
+d=open(p).read()
+old='inline float M_sqrt(float value) {\n\treturn _mm_cvtss_f32(_mm_sqrt_ss(_mm_load_ss(&value)));\n}\n\ninline double M_sqrt(double value) {\n\tdouble ret;\n\tauto v = _mm_load_sd(&value);\n\t_mm_store_sd(&ret, _mm_sqrt_sd(v, v));\n\treturn ret;\n}'
+new='inline float M_sqrt(float value) {\n#if defined(__i386__) || defined(__x86_64__)\n\treturn _mm_cvtss_f32(_mm_sqrt_ss(_mm_load_ss(&value)));\n#else\n\treturn sqrtf(value);\n#endif\n}\n\ninline double M_sqrt(double value) {\n#if defined(__i386__) || defined(__x86_64__)\n\tdouble ret;\n\tauto v = _mm_load_sd(&value);\n\t_mm_store_sd(&ret, _mm_sqrt_sd(v, v));\n\treturn ret;\n#else\n\treturn sqrt(value);\n#endif\n}'
+if old in d:
+    d=d.replace(old,new)
+    open(p,'w').write(d)
+    print('   patched mathlib.h M_sqrt for ARM64')
+else:
+    print('   mathlib.h already patched or target not found')
+"
+fi
+# Generate reapi_version.inc (normally produced by appversion.sh)
+mkdir -p "$REAPI/version"
+cat > "$REAPI/version/reapi_version.inc" << 'VERINC'
+#pragma once
+#define REAPI_VERSION_MAJOR 3
+#define REAPI_VERSION_MINOR 1
+#define REAPI_VERSION_PATCH 0
+#define REAPI_VERSION_STR "3.1.0"
+VERINC
+echo "   created reapi_version.inc"
 REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -Wall -Wno-unused -Wno-sign-compare \
   -D_LINUX -DLINUX -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=0 \
   -DHAVE_STRONG_TYPEDEF -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
