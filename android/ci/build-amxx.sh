@@ -550,6 +550,14 @@ if os.path.exists(p):
     d=d.replace('std::min(arg_count, MAX_HOOKCHAIN_ARGS)',
                  'std::min(static_cast<size_t>(arg_count), static_cast<size_t>(MAX_HOOKCHAIN_ARGS))')
     open(p,'w').write(d)
+# hook_callback.h: relax static_assert for 64-bit (args stored by address, not value)
+p = os.path.join(reapi, 'src', 'hook_callback.h')
+if os.path.exists(p):
+    d=open(p).read()
+    d=d.replace(
+        'static_assert(sizeof(T) <= sizeof(int), "invalid hookchain argument size > sizeof(int)");',
+        '#if defined(__LP64__) || defined(_WIN64)\n\t// On 64-bit, args are stored by address (size_t handle), not value\n#else\n\tstatic_assert(sizeof(T) <= sizeof(int), "invalid hookchain argument size > sizeof(int)");\n#endif')
+    open(p,'w').write(d)
 # natives_helper.h: guard operator size_t() when ULONG==size_t
 p = os.path.join(reapi, 'src', 'natives', 'natives_helper.h')
 if os.path.exists(p):
