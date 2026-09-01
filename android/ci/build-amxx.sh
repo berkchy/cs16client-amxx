@@ -67,6 +67,10 @@ vendored_from "$REPO_ROOT/android/mm-p" "$SRC/metamod-p"
 # Runtime metamod: FWGS/metamod-fwgs (CMake), Xash3D-explicit, produces
 # libmetamod_android_arm64.so.
 fetch metamod-fwgs "https://github.com/FWGS/metamod-fwgs.git" yes
+# ReAPI: AMXX module for ReGameDLL/ReHLDS API (rehlds/ReAPI)
+fetch reapi "https://github.com/rehlds/ReAPI.git" yes
+# YaPB: Counter-Strike bot, metamod plugin (yapb/yapb)
+fetch yapb "https://github.com/yapb/yapb.git" yes
 
 apply_patch() {
   local patch=$1 dir=$2 subdir=${3:-}
@@ -484,6 +488,45 @@ build_module csx cstrike/csx "" "" \
   -Wl,--wrap=__assert2 -Wl,--wrap=__assert_fail \
   -Wl,--whole-archive "$SYSROOT_LIB/libc++_static.a" -Wl,--no-whole-archive \
   "$SYSROOT_LIB/libc++abi.a" -ldl -lm -pthread
+
+# ----------------------------------------------------------------- reapi
+# ReAPI AMXX module (rehlds/ReAPI) — provides ReGameDLL/ReHLDS API natives.
+# CMakeLists.txt hardcodes i32/MSSE so we compile by hand with NDK.
+echo "== building reapi module =="
+REAPI="$SRC/reapi/reapi"
+mkdir -p "$TMP/mod-reapi"
+REAPI_INC="-I$REAPI/include -I$REAPI/include/cssdk/common -I$REAPI/include/cssdk/dlls \
+  -I$REAPI/include/cssdk/engine -I$REAPI/include/cssdk/game_shared \
+  -I$REAPI/include/cssdk/pm_shared -I$REAPI/include/cssdk/public \
+  -I$REAPI/include/metamod -I$REAPI/src -I$REAPI/src/mods -I$REAPI/src/natives \
+  -I$REAPI/version -I$REAPI/common -I$AMXX/public -I$AMXX/public/sdk"
+REAPI_DEFS="-D_LINUX -DLINUX -DNDEBUG -D_GLIBCXX_USE_CXX11_ABI=0 \
+  -DHAVE_STRONG_TYPEDEF -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
+  -D_vsnprintf=vsnprintf -D_snprintf=snprintf"
+for f in "$REAPI"/src/*.cpp "$REAPI"/src/natives/*.cpp "$REAPI"/common/*.cpp \
+         "$REAPI"/include/cssdk/public/interface.cpp; do
+  [ -e "$f" ] || continue
+  compile_one "mod-reapi" "$f" "$REAPI_INC" "$REAPI_DEFS"
+done
+relink "$OUT/lib/arm64-v8a/libreapi_amxx_amd64.so" "$TMP"/mod-reapi/*.o
+echo "   reapi -> $(ls -l "$OUT/lib/arm64-v8a/libreapi_amxx_amd64.so" | awk '{print $5}') bytes"
+
+# ------------------------------------------------------------------- yapb
+# YaPB bot (yapb/yapb) — metamod plugin, CMake-based.
+echo "== building yapb =="
+YAPBBUILD="$TMP/yapb-build"
+cmake -S "$SRC/yapb" -B "$YAPBBUILD" \
+  -GNinja \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a \
+  -DANDROID_PLATFORM=android-24 \
+  -DANDROID_STL=c++_static \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build "$YAPBBUILD" -j"$(nproc)"
+# YaPB produces libyapb.so or yapb.so depending on version
+YAPB_SO=$(find "$YAPBBUILD" -name "libyapb.so" -o -name "yapb.so" | head -1)
+cp "$YAPB_SO" "$OUT/lib/arm64-v8a/libyapb.so"
+echo "   yapb -> $(ls -l "$OUT/lib/arm64-v8a/libyapb.so" | awk '{print $5}') bytes"
 
 # ----------------------------------------------------------------- plugins
 # Host pawncc. libpc300 is compiled from source with 64-bit PAWN cells
