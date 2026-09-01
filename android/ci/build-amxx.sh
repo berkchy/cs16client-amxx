@@ -542,7 +542,13 @@ reapi = sys.argv[1]
 p = os.path.join(reapi, 'src', 'hook_callback.h')
 if os.path.exists(p):
     d=open(p).read()
-    d=re.sub(r'(\b)min\(', r'\1std::min(', d)
+    d=re.sub(r'(?<![:\w])min\(', 'std::min<static_cast<size_t>>(', d) if False else d
+    # Direct replacement for the known line
+    d=d.replace('args_count = min(arg_count, MAX_HOOKCHAIN_ARGS)',
+                 'args_count = std::min(static_cast<size_t>(arg_count), static_cast<size_t>(MAX_HOOKCHAIN_ARGS))')
+    # Also handle any std::min with mismatched types
+    d=d.replace('std::min(arg_count, MAX_HOOKCHAIN_ARGS)',
+                 'std::min(static_cast<size_t>(arg_count), static_cast<size_t>(MAX_HOOKCHAIN_ARGS))')
     open(p,'w').write(d)
 # natives_helper.h: guard operator size_t() when ULONG==size_t
 p = os.path.join(reapi, 'src', 'natives', 'natives_helper.h')
