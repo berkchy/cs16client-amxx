@@ -91,12 +91,6 @@ apply_patch "$PATCHES/amxmodx-64bit-cell-casts.diff"       "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-memtools-dlfcn.diff"         "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-CTextParsers-quote-underrun.diff" "$SRC/amxmodx"
 apply_patch "$PATCHES/amxmodx-amtl-64bit.diff"             "$SRC/amxmodx" "public/amtl"
-# Android: skip fopen existence check for module .so files (they live in the
-# APK native lib dir, not on the filesystem at the relative path).
-apply_patch "$PATCHES/amxmodx-android-skip-fopen.diff"    "$SRC/amxmodx"
-# Android: bare-name dlopen fallback for modules (relative paths with '/'
-# don't resolve in Android's linker namespace; bare names do).
-apply_patch "$PATCHES/amxmodx-android-module-loader.diff" "$SRC/amxmodx"
 # AMXX core is still compiled against metamod-p's meta_api.h (METAMOD above),
 # which requires this ARM64 shim (cs16_amxx_compat.h + const SET_LOCALINFO).
 apply_patch "$PATCHES/metamod-p-aarch64.patch"            "$SRC/metamod-p"

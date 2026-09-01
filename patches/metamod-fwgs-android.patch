@@ -14,7 +14,7 @@ index ee2181f..a924fd5 100644
  elseif (WIN32)
      target_link_libraries(metamod PRIVATE psapi)
 diff --git a/metamod/src/metamod.cpp b/metamod/src/metamod.cpp
-index 06d7088..c3d231c 100644
+index 06d7088..ae53b31 100644
 --- a/metamod/src/metamod.cpp
 +++ b/metamod/src/metamod.cpp
 @@ -64,6 +64,8 @@ void metamod_startup()
@@ -37,11 +37,10 @@ index 06d7088..c3d231c 100644
  
  	// Load config file
  	if (is_file_exists_in_gamedir(configFile))
-@@ -203,20 +209,9 @@ void metamod_startup()
- 		}
+@@ -204,19 +210,8 @@ void metamod_startup()
  	}
  
--	// Load plugins file
+ 	// Load plugins file
 -	if (!is_file_exists_in_gamedir(pluginFile)) {
 -		Q_strlcpy(pluginFile, g_config->directory());
 -
@@ -55,7 +54,6 @@ index 06d7088..c3d231c 100644
 -		if (!is_file_exists_in_gamedir(pluginFile)) {
 -			META_DEBUG(2, "No plugins.ini file found: %s", PLUGINS_INI);
 -		}
-+	// Android: plugins live in gamedir/addons/metamod/, not APK native dir
 +	if (!is_file_exists_in_gamedir(pluginFile) && g_GameDLL.gamedir[0]) {
 +		Q_snprintf(pluginFile, sizeof pluginFile, "%s/addons/metamod/%s", g_GameDLL.gamedir, PLUGINS_INI);
  	}
@@ -77,8 +75,52 @@ index 06d7088..c3d231c 100644
  		META_ERROR("dll: Couldn't load game DLL %s: %s", g_GameDLL.pathname, CSysModule::getloaderror());
  		return false;
  	}
+diff --git a/metamod/src/mplugin.cpp b/metamod/src/mplugin.cpp
+index 11efcc9..e217d50 100644
+--- a/metamod/src/mplugin.cpp
++++ b/metamod/src/mplugin.cpp
+@@ -746,6 +746,7 @@ bool MPlugin::query()
+ {
+ 	// open the plugin DLL
+ 	if (!m_sys_module.load(m_pathname)) {
++		META_CONS("== query: load FAILED '%s' path=%s err=%s", m_desc, m_pathname, m_sys_module.getloaderror());
+ 		META_ERROR("dll: Failed query plugin '%s'; Couldn't open file '%s': %s", m_desc, m_pathname, m_sys_module.getloaderror());
+ 		return false;
+ 	}
+@@ -762,6 +763,7 @@ bool MPlugin::query()
+ 	// GiveFnptrsToDll.
+ 	auto pfn_query = (META_QUERY_FN)m_sys_module.getsym("Meta_Query");
+ 	if (!pfn_query) {
++		META_CONS("== query: no Meta_Query in '%s'", m_desc);
+ 		META_ERROR("dll: Failed query plugin '%s'; Couldn't find Meta_Query(): %s", m_desc, "function not found");
+ 		// caller will dlclose()
+ 		return false;
+@@ -794,6 +796,7 @@ bool MPlugin::query()
+ 	// pass on engine function table and globals to plugin
+ 	auto pfn_give_engfuncs = (GIVE_ENGINE_FUNCTIONS_FN)m_sys_module.getsym("GiveFnptrsToDll");
+ 	if (!pfn_give_engfuncs) {
++		META_CONS("== query: no GiveFnptrsToDll in '%s'", m_desc);
+ 		META_ERROR("dll: Failed query plugin '%s'; Couldn't find GiveFnptrsToDll(): %s", m_desc, "function not found");
+ 		return false;
+ 	}
+@@ -810,6 +813,7 @@ bool MPlugin::query()
+ 	Q_memcpy(&m_mutil_funcs, &g_MetaUtilFunctions, sizeof m_mutil_funcs);
+ 
+ 	if (pfn_query(META_INTERFACE_VERSION, &m_info, &m_mutil_funcs) != TRUE) {
++		META_CONS("== query: Meta_Query returned FALSE for '%s'", m_desc);
+ 		META_ERROR("dll: Failed query plugin '%s'; Meta_Query returned error", m_desc);
+ 	}
+ 	else {
+@@ -826,6 +830,7 @@ bool MPlugin::query()
+ 	// Note, this check is done regardless of whether meta_query returns an
+ 	// error.
+ 	if (!m_info) {
++		META_CONS("== query: empty info struct for '%s'", m_desc);
+ 		META_ERROR("dll: Failed query plugin '%s'; Empty info structure", m_desc);
+ 		// caller will dlclose()
+ 		return false;
 diff --git a/metamod/src/sys_module.cpp b/metamod/src/sys_module.cpp
-index 74d1366..e9115aa 100644
+index 74d1366..0fcd323 100644
 --- a/metamod/src/sys_module.cpp
 +++ b/metamod/src/sys_module.cpp
 @@ -1,4 +1,30 @@
@@ -112,10 +154,12 @@ index 74d1366..e9115aa 100644
  
  const module_handle_t CSysModule::INVALID_HANDLE = (module_handle_t)0;
  
-@@ -145,27 +171,53 @@ module_handle_t CSysModule::load(const char *filepath)
+@@ -145,27 +171,57 @@ module_handle_t CSysModule::load(const char *filepath)
  		m_handle = dlopen(filepath, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
  		if (m_handle) m_free = true;
  
++		META_CONS("== load: dlopen(%s) -> %s", filepath, m_handle ? "OK" : getloaderror());
++
 +		// Android: dlopen only resolves bare library names or absolute paths that
 +		// live inside the app's trusted native namespace. Relative config paths
 +		// (e.g. "dlls/libcs_android_arm64.so") will not resolve even though the
@@ -133,11 +177,13 @@ index 74d1366..e9115aa 100644
 +					Q_sprintf(full, "%s/%s", g_self_dir, cp);
 +					m_handle = dlopen(full, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
 +					if (m_handle) m_free = true;
++					META_CONS("== load: fallback1(%s) -> %s", full, m_handle ? "OK" : getloaderror());
 +				}
 +				if (!m_handle) {
 +					Q_sprintf(full, "lib%s", cp);
 +					m_handle = dlopen(full, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
 +					if (m_handle) m_free = true;
++					META_CONS("== load: fallback2(%s) -> %s", full, m_handle ? "OK" : getloaderror());
 +				}
 +			}
 +		}
