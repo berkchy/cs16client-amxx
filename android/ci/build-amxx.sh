@@ -540,6 +540,7 @@ REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -fpermissive -Wno-unused -Wno-sign-compare
   -DHAVE_STRONG_TYPEDEF -D_stricmp=strcasecmp -D_strnicmp=strncasecmp \
   -D_vsnprintf=vsnprintf -D_snprintf=snprintf \
   -include algorithm -include cstdint -include cstddef \
+  -Dmin=std::min -Dmax=std::max \
   -I$REAPI/include -I$REAPI/include/cssdk/common -I$REAPI/include/cssdk/dlls \
   -I$REAPI/include/cssdk/engine -I$REAPI/include/cssdk/game_shared \
   -I$REAPI/include/cssdk/pm_shared -I$REAPI/include/cssdk/public \
