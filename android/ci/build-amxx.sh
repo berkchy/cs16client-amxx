@@ -279,7 +279,7 @@ for f in "$AMXX/third_party/zlib/"*.c; do
   [ -e "$f" ] || continue
   compile_one core "$f" "" ""
 done
-for f in "$AMXX/third_party/utf8rewind/utf8rewind/"*.cpp; do
+for f in "$AMXX/third_party/utf8rewind/"*.c "$AMXX/third_party/utf8rewind/internal/"*.c; do
   [ -e "$f" ] || continue
   compile_one core "$f" "" ""
 done
