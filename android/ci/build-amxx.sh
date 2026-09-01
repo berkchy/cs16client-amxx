@@ -620,6 +620,11 @@ if os.path.exists(p):
     d=open(p).read()
     d = _re.sub(r'\(cell\)(get_member_direct<)', r'(cell)(uintptr_t)\1', d)
     open(p,'w').write(d)
+# common/stdc++compat.cpp: GLIBCXX compat shim not needed on Android NDK
+p = os.path.join(reapi, 'common', 'stdc++compat.cpp')
+if os.path.exists(p):
+    os.remove(p)
+    print('   removed stdc++compat.cpp (not needed on Android)')
 print('   patched reapi sources for ARM64')
 " "$REAPI"
 REAPI_BASEFLAGS="-std=c++14 -O2 -fPIC -fpermissive -w \
