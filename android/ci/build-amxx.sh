@@ -201,7 +201,7 @@ compile_one core "$AMXX/public/memtools/MemoryUtils.cpp" "" ""
 compile_one core "$AMXX/public/memtools/CDetour/detours.cpp" "" ""
 compile_one core "$AMXX/public/memtools/CDetour/asm/asm.c" "" ""
 compile_one core "$AMXX/public/resdk/mod_rehlds_api.cpp" "" ""
-for f in "$AMXX/third_party/hashing/hashinglib/"*.{c,cpp}; do
+for f in "$AMXX/third_party/hashing/"*.cpp "$AMXX/third_party/hashing/hashers/"*.cpp; do
   [ -e "$f" ] || continue
   compile_one core "$f" "" ""
 done
