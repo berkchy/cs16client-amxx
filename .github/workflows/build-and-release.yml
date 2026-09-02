@@ -129,13 +129,23 @@ jobs:
           mkdir -p android/app/src/main/assets/bundle
           cp bundles/amxx-bundle.zip android/app/src/main/assets/bundle/bundle.zip
 
-      - name: Embed amxxpc as native lib (exec via nativeLibraryDir)
+      - name: Embed amxxpc + modules as native libs (nativeLibraryDir)
         shell: bash
         run: |
           mkdir -p android/app/src/main/jniLibs/arm64-v8a
+          # amxxpc compiler
           unzip -p bundles/amxx-bundle.zip compiler/amxxpc > android/app/src/main/jniLibs/arm64-v8a/libamxxpc.so
           unzip -p bundles/amxx-bundle.zip compiler/amxxpc32.so > android/app/src/main/jniLibs/arm64-v8a/libamxxpc32.so
           chmod +x android/app/src/main/jniLibs/arm64-v8a/libamxxpc.so
+          # AMXX modules — CS16Client loads them via nativeLibraryDir dlopen
+          for so in $(unzip -l bundles/amxx-bundle.zip | grep 'lib/arm64-v8a/lib.*_amxx_amd64.so' | awk '{print $NF}'); do
+            name=$(basename "$so")
+            unzip -p bundles/amxx-bundle.zip "$so" > "android/app/src/main/jniLibs/arm64-v8a/$name"
+            chmod +x "android/app/src/main/jniLibs/arm64-v8a/$name"
+          done
+          # core lib
+          unzip -p bundles/amxx-bundle.zip lib/arm64-v8a/libamxmodx.so > android/app/src/main/jniLibs/arm64-v8a/libamxmodx.so
+          chmod +x android/app/src/main/jniLibs/arm64-v8a/libamxmodx.so
           ls -lh android/app/src/main/jniLibs/arm64-v8a/
 
       - name: Build the patcher APK
