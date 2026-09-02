@@ -700,6 +700,22 @@ echo "   yapb -> $(ls -l "$OUT/lib/arm64-v8a/libyapb.so" | awk '{print $5}') byt
 echo "== building client (vcs16, crash handler) =="
 CLIENT_SRC="$REPO_ROOT/vcs16"
 CLIENT_BUILD="$TMP/client-build"
+# Ensure vcs16 submodules are present (utlstring.h etc). CI checks out cs16client-amxx
+# without --recurse-submodules and vcs16 was copied without .git, so 3rdparty dirs may be empty.
+if [ -f "$CLIENT_SRC/.gitmodules" ]; then
+  if [ -d "$CLIENT_SRC/.git" ]; then
+    git -C "$CLIENT_SRC" submodule update --init --recursive 2>&1 | head -20 || true
+  else
+    echo "   vcs16 .git missing, fetching submodules manually"
+    for mod in "3rdparty/mainui_cpp:https://github.com/Velaron/mainui_cpp" "3rdparty/miniutl:https://github.com/FWGS/MiniUTL"; do
+      path="${mod%%:*}"; url="${mod##*:}"
+      if [ ! -f "$CLIENT_SRC/$path/CMakeLists.txt" ] && [ ! -f "$CLIENT_SRC/$path/README.md" ]; then
+        rm -rf "$CLIENT_SRC/$path"
+        git clone --depth 1 "$url" "$CLIENT_SRC/$path" 2>&1 | tail -2 || true
+      fi
+    done
+  fi
+fi
 cmake -S "$CLIENT_SRC" -B "$CLIENT_BUILD" \
   -GNinja \
   -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
