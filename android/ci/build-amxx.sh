@@ -711,9 +711,13 @@ if [ -f "$CLIENT_SRC/.gitmodules" ]; then
       path="${mod%%|*}"; url="${mod##*|}"
       if [ ! -f "$CLIENT_SRC/$path/CMakeLists.txt" ] && [ ! -f "$CLIENT_SRC/$path/README.md" ]; then
         rm -rf "$CLIENT_SRC/$path"
-        git clone --depth 1 "$url" "$CLIENT_SRC/$path" 2>&1 | tail -2 || true
+        git clone --depth 1 --recurse-submodules --shallow-submodules "$url" "$CLIENT_SRC/$path" 2>&1 | tail -2 || true
       fi
     done
+    # mainui_cpp bundles miniutl as its own submodule; ensure it's populated even when we just cloned mainui_cpp shallow
+    if [ -d "$CLIENT_SRC/3rdparty/mainui_cpp/miniutl" ] && [ ! -f "$CLIENT_SRC/3rdparty/mainui_cpp/miniutl/CMakeLists.txt" ]; then
+      git clone --depth 1 https://github.com/FWGS/MiniUTL "$CLIENT_SRC/3rdparty/mainui_cpp/miniutl" 2>&1 | tail -2 || true
+    fi
   fi
 fi
 cmake -S "$CLIENT_SRC" -B "$CLIENT_BUILD" \
