@@ -5,175 +5,247 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedButtonDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextButtonDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.pickle.patcher.ui.theme.Mint20
-import com.pickle.patcher.ui.theme.Mint80
-import com.pickle.patcher.ui.theme.OnDarkMuted
-import com.pickle.patcher.ui.theme.Violet30
-import kotlin.math.roundToInt
+import com.pickle.patcher.ui.theme.Accent
+import com.pickle.patcher.ui.theme.Gray40
+import com.pickle.patcher.ui.theme.Gray60
+import com.pickle.patcher.ui.theme.Gray70
+import com.pickle.patcher.ui.theme.Gray80
+import com.pickle.patcher.ui.theme.Gray90
+import com.pickle.patcher.ui.theme.SuccessGreen
+import com.pickle.patcher.ui.theme.White
 
-/** Hero glow behind a big icon — a slowly breathing radial gradient. */
-@Composable
-fun HeroCard(title: String, subtitle: String, icon: @Composable () -> Unit, onClick: () -> Unit = {}) {
-    ElevatedCard(
-        onClick = onClick,
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-    ) {
-        HeroCardBody(title, subtitle, icon)
-    }
-}
-
-@Composable
-private fun HeroCardBody(title: String, subtitle: String, icon: @Composable () -> Unit) {
-    Column(Modifier.padding(22.dp)) {
-        Box(Modifier.align(Alignment.CenterHorizontally)) {
-            Box(
-                Modifier
-                    .size(92.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(Mint20, Violet30))),
-                contentAlignment = Alignment.Center,
-            ) { icon() }
-        }
-        Spacer(Modifier.height(18.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            subtitle,
-            style = MaterialTheme.typography.bodyLarge,
-            color = OnDarkMuted,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
-    }
-}
-
-/** Animated step marker: done → filled check, active → pulsing ring, pending → dim dot. */
-@Composable
-fun StepMarker(state: StepState, modifier: Modifier = Modifier) {
-    when (state) {
-        StepState.DONE -> {
-            Icon(
-                Icons.Filled.CheckCircle,
-                contentDescription = "done",
-                tint = Mint80,
-                modifier = modifier.size(30.dp),
-            )
-        }
-        StepState.ACTIVE -> {
-            val transition = rememberInfiniteTransition(label = "pulse")
-            val scale by transition.animateFloat(
-                initialValue = 0.7f, targetValue = 1.35f,
-                animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-                label = "pulseScale",
-            )
-            Box(modifier.size(30.dp), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .size(30.dp * scale)
-                        .clip(CircleShape)
-                        .background(Mint80.copy(alpha = 0.35f)),
-                )
-                Box(
-                    Modifier
-                        .size(16.dp)
-                        .clip(CircleShape)
-                        .background(Mint80),
-                )
-            }
-        }
-        StepState.PENDING -> {
-            Box(
-                Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(OnDarkMuted.copy(alpha = 0.35f))
-                    .then(modifier),
-            )
-        }
-    }
-}
+private val CardShape = RoundedCornerShape(12.dp)
+private val ButtonShape = RoundedCornerShape(8.dp)
 
 enum class StepState { PENDING, ACTIVE, DONE }
 
 @Composable
-fun StepListItem(
+fun SectionHeader(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = Gray40,
+        modifier = modifier.padding(bottom = 8.dp),
+    )
+}
+
+@Composable
+fun AppCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = CardShape,
+        color = Gray90,
+        tonalElevation = 0.dp,
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            content()
+        }
+    }
+}
+
+@Composable
+fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: @Composable (() -> Unit)? = null,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.fillMaxWidth().height(44.dp),
+        shape = ButtonShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Accent,
+            contentColor = Color.Black,
+            disabledContainerColor = Gray70,
+            disabledContentColor = Gray40,
+        ),
+    ) {
+        icon?.invoke()
+        if (icon != null) Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+fun SecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    icon: @Composable (() -> Unit)? = null,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(44.dp),
+        shape = ButtonShape,
+        colors = OutlinedButtonDefaults.outlinedButtonColors(
+            contentColor = Gray40,
+            disabledContentColor = Gray60,
+        ),
+        border = OutlinedButtonDefaults.outlinedButtonBorder(enabled = enabled, borderColor = Gray70),
+    ) {
+        icon?.invoke()
+        if (icon != null) Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+fun GhostButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        colors = TextButtonDefaults.textButtonColors(contentColor = Accent),
+    ) {
+        Text(text, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+fun StepIndicator(state: StepState, modifier: Modifier = Modifier) {
+    val containerColor = when (state) {
+        StepState.DONE -> SuccessGreen
+        StepState.ACTIVE -> Accent
+        StepState.PENDING -> Gray70
+    }
+    val iconColor = when (state) {
+        StepState.DONE, StepState.ACTIVE -> Color.Black
+        StepState.PENDING -> Gray60
+    }
+
+    if (state == StepState.ACTIVE) {
+        val transition = rememberInfiniteTransition(label = "pulse")
+        val scale by transition.animateFloat(
+            initialValue = 0.8f,
+            targetValue = 1.2f,
+            animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
+            label = "pulseScale",
+        )
+        Surface(
+            modifier = modifier.size((24.dp * scale).coerceAtMost(30.dp)),
+            shape = CircleShape,
+            color = Accent.copy(alpha = 0.25f),
+        ) {
+            Surface(
+                modifier = Modifier.padding(5.dp),
+                shape = CircleShape,
+                color = containerColor,
+            ) {}
+        }
+    } else {
+        Surface(
+            modifier = modifier.size(24.dp),
+            shape = CircleShape,
+            color = containerColor,
+        ) {
+            if (state == StepState.DONE) {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = iconColor,
+                    modifier = Modifier.padding(4.dp).size(16.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StepRow(
     title: String,
     detail: String,
     state: StepState,
-    animate: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    val container by animateColorAsState(
+    val bgColor by animateColorAsState(
         targetValue = when (state) {
-            StepState.DONE -> Mint20.copy(alpha = 0.55f)
-            StepState.ACTIVE -> MaterialTheme.colorScheme.surfaceContainerHigh
-            StepState.PENDING -> MaterialTheme.colorScheme.surfaceContainer
+            StepState.ACTIVE -> Accent.copy(alpha = 0.08f)
+            StepState.DONE -> SuccessGreen.copy(alpha = 0.06f)
+            StepState.PENDING -> Color.Transparent
         },
-        animationSpec = tween(if (animate) 320 else 0),
+        animationSpec = tween(200),
         label = "stepBg",
-    )
-    val animatedState by animateFloatAsState(
-        targetValue = when (state) { StepState.ACTIVE -> 1f; else -> 0f },
-        animationSpec = tween(if (animate) 260 else 0),
-        label = "stepActive",
     )
 
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        color = container,
+        shape = CardShape,
+        color = bgColor,
     ) {
         Row(
-            Modifier
-                .padding(horizontal = 16.dp, vertical = 13.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            StepMarker(state, Modifier.padding(end = 14.dp))
+            StepIndicator(state)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    title,
-                    style = MaterialTheme.typography.titleMedium,
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
                     color = when (state) {
-                        StepState.PENDING -> OnDarkMuted.copy(alpha = 0.7f)
-                        else -> MaterialTheme.colorScheme.onSurface
+                        StepState.PENDING -> Gray40
+                        else -> White
                     },
                 )
-                AnimatedVisibility(
-                    visible = state != StepState.PENDING || animatedState > 0f,
-                    enter = androidx.compose.animation.expandVertically(),
-                    exit = androidx.compose.animation.shrinkVertically(),
-                ) {
+                if (detail.isNotEmpty()) {
                     Text(
-                        detail,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (state == StepState.ACTIVE) Mint80 else OnDarkMuted,
+                        text = detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (state == StepState.ACTIVE) Accent else Gray40,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -184,28 +256,47 @@ fun StepListItem(
 }
 
 @Composable
-fun StatChip(label: String, value: String, modifier: Modifier = Modifier, accent: Color = Mint80) {
+fun InfoRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    valueColor: Color = Accent,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Gray40)
+        Text(value, style = MaterialTheme.typography.bodySmall, color = valueColor)
+    }
+}
+
+@Composable
+fun StatPill(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    accent: Color = Accent,
+) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(8.dp),
+        color = Gray85,
     ) {
         Column(
-            Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .widthIn(min = 92.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).widthIn(min = 80.dp),
         ) {
             Text(
                 value,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = accent,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 label,
-                style = MaterialTheme.typography.labelMedium,
-                color = OnDarkMuted,
+                style = MaterialTheme.typography.labelSmall,
+                color = Gray40,
                 maxLines = 1,
             )
         }
@@ -213,32 +304,25 @@ fun StatChip(label: String, value: String, modifier: Modifier = Modifier, accent
 }
 
 @Composable
-fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleMedium,
-        color = OnDarkMuted,
-        modifier = modifier,
-    )
-}
-
-/** Big interactive loader for downloads/patches with an emergent percentage. */
-@Composable
-fun AnimatedProgressBar(fraction: Float, modifier: Modifier = Modifier) {
+fun AppProgressBar(fraction: Float, modifier: Modifier = Modifier) {
     val animated by animateFloatAsState(
         targetValue = fraction.coerceIn(0f, 1f),
-        animationSpec = tween(520, easing = FastOutSlowInEasing),
+        animationSpec = tween(400, easing = FastOutSlowInEasing),
         label = "progress",
     )
-    LinearProgressIndicator(
-        progress = { animated },
-        modifier = modifier.height(8.dp).clip(CircleShape),
-        color = Mint80,
-        trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-    )
-    Text(
-        "${(animated * 100).roundToInt()}%",
-        style = MaterialTheme.typography.labelMedium,
-        color = Mint80,
-    )
+    Column(modifier) {
+        LinearProgressIndicator(
+            progress = { animated },
+            modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+            color = Accent,
+            trackColor = Gray80,
+            strokeCap = StrokeCap.Round,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "${(animated * 100).toInt()}%",
+            style = MaterialTheme.typography.labelSmall,
+            color = Gray40,
+        )
+    }
 }

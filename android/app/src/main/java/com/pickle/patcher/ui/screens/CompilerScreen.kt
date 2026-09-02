@@ -1,26 +1,57 @@
 package com.pickle.patcher.ui.screens
 
+import android.content.Intent
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CreateNewFolder
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pickle.patcher.patcher.CompileState
 import com.pickle.patcher.patcher.PatcherViewModel
 import com.pickle.patcher.patcher.SmaSource
-import com.pickle.patcher.ui.theme.OnDarkMuted
-import com.pickle.patcher.ui.theme.Mint80
+import com.pickle.patcher.ui.theme.Accent
+import com.pickle.patcher.ui.theme.AlertRed
+import com.pickle.patcher.ui.theme.Gray40
+import com.pickle.patcher.ui.theme.Gray80
+import com.pickle.patcher.ui.theme.Gray90
+import com.pickle.patcher.ui.theme.SuccessGreen
+import com.pickle.patcher.ui.theme.White
 
 @Composable
 fun CompilerScreen(vm: PatcherViewModel) {
@@ -29,166 +60,191 @@ fun CompilerScreen(vm: PatcherViewModel) {
     val compile by vm.compile.collectAsState()
     val scriptRoot by vm.scriptRoot.collectAsState()
     var selected by remember { mutableStateOf<String?>(null) }
+    var showPermissionRationale by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
 
     val folderPicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree()
+        ActivityResultContracts.OpenDocumentTree(),
     ) { uri -> uri?.let(vm::setScriptRoot) }
+
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (Environment.isExternalStorageManager()) {
+                folderPicker.launch(null)
+            } else {
+                showPermissionRationale = true
+            }
+        }
+    }
+
+    fun requestStorageAndPickFolder() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (Environment.isExternalStorageManager()) {
+                folderPicker.launch(null)
+            } else {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = android.net.Uri.parse("package:${context.packageName}")
+                }
+                storagePermissionLauncher.launch(intent)
+            }
+        } else {
+            folderPicker.launch(null)
+        }
+    }
 
     val selectedSource = scripts.firstOrNull { it.path == selected }
 
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scroll)
-            .padding(20.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Text("Compiler", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
-            "Pick a folder to scan for .sma plugins (e.g. addons/amxmodx/scripting), then compile them with the local amxxpc.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = OnDarkMuted,
+            "Compile .sma plugins with the local amxxpc.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Gray40,
         )
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(20.dp))
 
-        SectionTitle("Scripts folder")
-        Spacer(Modifier.height(10.dp))
-        ElevatedCard(shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(14.dp)) {
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    Text(
-                        scriptRoot ?: "No folder selected yet.",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (scriptRoot != null) Mint80 else OnDarkMuted,
-                        modifier = Modifier.weight(1f),
-                    )
-                    IconButton(onClick = { if (scriptRoot != null) vm.refreshScripts() }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+        SectionHeader("SCRIPTS FOLDER")
+        AppCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    scriptRoot ?: "No folder selected.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (scriptRoot != null) Accent else Gray40,
+                    modifier = Modifier.weight(1f),
+                )
+                if (scriptRoot != null) {
+                    IconButton(onClick = { vm.refreshScripts() }, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.Refresh, "Refresh", modifier = Modifier.size(18.dp), tint = Gray40)
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = { folderPicker.launch(null) },
-                    shape = RoundedCornerShape(14.dp),
+            }
+            Spacer(Modifier.height(8.dp))
+            PrimaryButton(
+                text = if (scriptRoot != null) "Change" else "Select folder",
+                onClick = { requestStorageAndPickFolder() },
+                icon = { Icon(Icons.Filled.CreateNewFolder, null, modifier = Modifier.size(18.dp)) },
+            )
+
+            if (showPermissionRationale) {
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AlertRed.copy(alpha = 0.1f),
                 ) {
-                    Icon(Icons.Filled.CreateNewFolder, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (scriptRoot != null) "Change folder" else "Select folder")
-                }
-            }
-        }
-
-        Spacer(Modifier.height(18.dp))
-
-        SectionTitle("Plugins (.sma)")
-        Spacer(Modifier.height(10.dp))
-        ElevatedCard(shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(14.dp)) {
-                if (scriptRoot == null) {
-                    Text(
-                        "Select a folder above to start scanning for .sma files.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OnDarkMuted,
-                    )
-                } else if (scripts.isEmpty()) {
-                    Text(
-                        "No .sma files found in the selected folder.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OnDarkMuted,
-                    )
-                } else {
-                    scripts.forEach { s ->
-                        val isSelected = s.path == selected
-                        Surface(
-                            onClick = { selected = if (isSelected) null else s.path },
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) {
-                                MaterialTheme.colorScheme.surfaceContainerHighest
-                            } else {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
-                        ) {
-                            Row(
-                                Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                            ) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(s.name, style = MaterialTheme.typography.titleSmall)
-                                    Text(
-                                        if (s.hasInclude) "include/ available" else "no include/ folder",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = if (s.hasInclude) Mint80 else OnDarkMuted,
-                                    )
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            "Storage permission is required.",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = AlertRed,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "The compiler needs access to your files to read .sma scripts and write compiled .amxx output. Please grant \"All files access\" in the system settings.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Gray40,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SecondaryButton(
+                            text = "Open Settings",
+                            onClick = {
+                                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                                    data = android.net.Uri.parse("package:${context.packageName}")
                                 }
-                                RadioButton(
-                                    selected = isSelected,
-                                    onClick = { selected = if (isSelected) null else s.path },
-                                )
-                            }
-                        }
+                                storagePermissionLauncher.launch(intent)
+                            },
+                        )
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(16.dp))
+
+        SectionHeader("PLUGINS (.sma)")
+        AppCard {
+            if (scriptRoot == null) {
+                Text("Select a folder above.", style = MaterialTheme.typography.bodySmall, color = Gray40)
+            } else if (scripts.isEmpty()) {
+                Text("No .sma files found.", style = MaterialTheme.typography.bodySmall, color = Gray40)
+            } else {
+                scripts.forEach { s ->
+                    ScriptRow(s, s.path == selected) {
+                        selected = if (s.path == selected) null else s.path
+                    }
+                }
+            }
+        }
 
         selectedSource?.let { src ->
-            ElevatedCard(shape = RoundedCornerShape(20.dp)) {
-                Column(Modifier.padding(18.dp)) {
-                    Text(
-                        "Compile ${src.name}",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Script: ${src.scriptDir}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = OnDarkMuted,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    Button(
-                        onClick = { vm.compile(src) },
-                        shape = RoundedCornerShape(14.dp),
-                        enabled = compile !is CompileState.Compiling,
-                    ) {
-                        Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Compile")
-                    }
-                }
+            Spacer(Modifier.height(16.dp))
+            SectionHeader("COMPILE")
+            AppCard {
+                Text(src.name, style = MaterialTheme.typography.titleSmall)
+                Text(src.scriptDir, style = MaterialTheme.typography.bodySmall, color = Gray40)
+                Spacer(Modifier.height(10.dp))
+                PrimaryButton(
+                    text = "Compile",
+                    onClick = { vm.compile(src) },
+                    enabled = compile !is CompileState.Compiling,
+                    icon = { Icon(Icons.Filled.PlayArrow, null, modifier = Modifier.size(18.dp)) },
+                )
             }
         }
-
-        if (selectedSource == null && scriptRoot != null) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Select a plugin above to compile it.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = OnDarkMuted,
-            )
-        }
-
-        Spacer(Modifier.height(18.dp))
 
         when (val c = compile) {
-            is CompileState.Idle -> Unit
             is CompileState.Compiling -> {
-                SectionTitle("Compiling ${c.source}…")
-                Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(Modifier.fillMaxWidth())
+                Spacer(Modifier.height(12.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().height(3.dp))
             }
             is CompileState.Done -> {
-                SectionTitle("Output")
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
+                SectionHeader("OUTPUT")
                 LogBox(c.log)
             }
             is CompileState.Failed -> {
-                SectionTitle("Output")
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
+                SectionHeader("OUTPUT")
                 LogBox(c.message, error = true)
+            }
+            else -> {}
+        }
+    }
+}
+
+@Composable
+private fun ScriptRow(s: SmaSource, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) Gray80 else Gray90,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(s.name, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    if (s.hasInclude) "include/ ✓" else "no include/",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (s.hasInclude) SuccessGreen else Gray40,
+                )
+            }
+            if (selected) {
+                Icon(
+                    Icons.Filled.CheckCircle, null,
+                    tint = Accent, modifier = Modifier.size(18.dp),
+                )
             }
         }
     }
@@ -196,19 +252,19 @@ fun CompilerScreen(vm: PatcherViewModel) {
 
 @Composable
 private fun LogBox(text: String, error: Boolean = false) {
-    val mono = androidx.compose.ui.text.font.FontFamily.Monospace
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        shape = RoundedCornerShape(8.dp),
+        color = Gray80,
     ) {
         Text(
             text,
-            style = MaterialTheme.typography.bodySmall.copy(fontFamily = mono, fontSize = 11.sp),
-            color = if (error) MaterialTheme.colorScheme.error else OnDarkMuted,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                .padding(12.dp),
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+            ),
+            color = if (error) AlertRed else Gray40,
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
         )
     }
 }

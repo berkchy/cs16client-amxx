@@ -4,25 +4,28 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Architecture
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.RocketLaunch
-import androidx.compose.material.icons.outlined.Architecture
-import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.RocketLaunch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,12 +38,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.pickle.patcher.patcher.PatcherViewModel
-import com.pickle.patcher.ui.screens.CrashLogScreen
 import com.pickle.patcher.ui.screens.CompilerScreen
-import com.pickle.patcher.ui.screens.HomeScreen
+import com.pickle.patcher.ui.screens.CrashLogScreen
 import com.pickle.patcher.ui.screens.PatchScreen
 import com.pickle.patcher.ui.screens.ReleasesScreen
 import com.pickle.patcher.ui.theme.AmxxPatcherTheme
+import com.pickle.patcher.ui.theme.Black
+import com.pickle.patcher.ui.theme.Gray40
+import com.pickle.patcher.ui.theme.Gray85
+import com.pickle.patcher.ui.theme.Gray90
+import com.pickle.patcher.ui.theme.White
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 class MainActivity : ComponentActivity() {
@@ -63,11 +70,10 @@ private enum class Dest(
     val selectedIcon: ImageVector,
     val icon: ImageVector,
 ) {
-    Home("home", "Home", Icons.Filled.Home, Icons.Outlined.Home),
-    Patch("patch", "Patch", Icons.Filled.RocketLaunch, Icons.Outlined.Architecture),
-    Crash("crash", "Crash Log", Icons.Filled.BugReport, Icons.Outlined.BugReport),
-    Compiler("compiler", "Compiler", Icons.Filled.Code, Icons.Outlined.Code),
-    Releases("releases", "Downloads", Icons.Filled.Build, Icons.Outlined.Build),
+    Patch("patch", "Patch", Icons.Filled.RocketLaunch, Icons.Outlined.RocketLaunch),
+    Compiler("compiler", "Compile", Icons.Filled.Code, Icons.Outlined.Code),
+    Downloads("downloads", "Downloads", Icons.Filled.Download, Icons.Outlined.Download),
+    CrashLog("crashlog", "Log", Icons.Filled.History, Icons.Outlined.History),
 }
 
 @Composable
@@ -77,61 +83,67 @@ fun PatcherApp(vm: PatcherViewModel) {
     val currentRoute = entry?.destination?.route
 
     Scaffold(
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Black,
+        contentColor = White,
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                tonalElevation = 4.dp,
+            Surface(
+                color = Gray90,
+                shadowElevation = 8.dp,
             ) {
-                Dest.entries.forEach { dest ->
-                    val selected = currentRoute == dest.route
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            if (!selected) {
-                                nav.navigate(dest.route) {
-                                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
+                NavigationBar(
+                    containerColor = Gray90,
+                    tonalElevation = 0.dp,
+                ) {
+                    Dest.entries.forEach { dest ->
+                        val selected = currentRoute == dest.route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                if (!selected) {
+                                    nav.navigate(dest.route) {
+                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = if (selected) dest.selectedIcon else dest.icon,
-                                contentDescription = dest.label,
-                            )
-                        },
-                        label = { Text(dest.label, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    )
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = if (selected) dest.selectedIcon else dest.icon,
+                                    contentDescription = dest.label,
+                                )
+                            },
+                            label = {
+                                Text(
+                                    dest.label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1,
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                unselectedIconColor = Gray40,
+                                unselectedTextColor = Gray40,
+                                indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                            ),
+                        )
+                    }
                 }
             }
         },
     ) { padding ->
         NavHost(
             navController = nav,
-            startDestination = Dest.Home.route,
-            modifier = Modifier.padding(padding),
+            startDestination = Dest.Patch.route,
+            modifier = Modifier.fillMaxSize().padding(padding),
+            enterTransition = { fadeIn(tween(200)) },
+            exitTransition = { fadeOut(tween(200)) },
         ) {
-            composable(Dest.Home.route) {
-                HomeScreen(vm, onGoToPatch = {
-                    nav.navigate(Dest.Patch.route) {
-                        popUpTo(Dest.Home.route) { saveState = true }
-                        launchSingleTop = true
-                    }
-                })
-            }
             composable(Dest.Patch.route) { PatchScreen(vm) }
-            composable(Dest.Crash.route) { CrashLogScreen(vm) }
             composable(Dest.Compiler.route) { CompilerScreen(vm) }
-            composable(Dest.Releases.route) { ReleasesScreen(vm) }
+            composable(Dest.Downloads.route) { ReleasesScreen(vm) }
+            composable(Dest.CrashLog.route) { CrashLogScreen(vm) }
         }
     }
 }

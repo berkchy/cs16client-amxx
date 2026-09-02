@@ -2,26 +2,28 @@ package com.pickle.patcher.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Dark, gaming-grade palette — deep slate base with mint/cyan primary and violet secondary.
-val Mint80 = Color(0xFF79DFC1)
-val MintG10 = Color(0xFFB2F4E2)
-val Mint30 = Color(0xFF2F6B57)
-val Mint20 = Color(0xFF1E4639)
+// Professional dark palette — pure black base with neutral grays and a single accent.
+val Accent = Color(0xFF4FC3F7)        // Soft cyan accent
+val AccentDim = Color(0xFF0288D1)     // Deeper accent for containers
+val AccentSurface = Color(0xFF0D2533)  // Tinted surface for accent areas
 
-val Violet80 = Color(0xFFA5B4FC)
-val Violet90 = Color(0xFFD3D8FF)
-val Violet40 = Color(0xFF5A63A8)
-val Violet30 = Color(0xFF3E4380)
+val Black = Color(0xFF000000)
+val Gray99 = Color(0xFF0A0A0A)
+val Gray95 = Color(0xFF111111)
+val Gray90 = Color(0xFF1A1A1A)
+val Gray85 = Color(0xFF222222)
+val Gray80 = Color(0xFF2A2A2A)
+val Gray70 = Color(0xFF3A3A3A)
+val Gray60 = Color(0xFF555555)
+val Gray50 = Color(0xFF777777)
+val Gray40 = Color(0xFF999999)
+val Gray30 = Color(0xFFBBBBBB)
+val Gray20 = Color(0xFFDDDDDD)
+val Gray10 = Color(0xFFEEEEEE)
+val White = Color(0xFFF5F5F5)
 
-val Slate950 = Color(0xFF0E1116)
-val Slate900 = Color(0xFF151A23)
-val Slate850 = Color(0xFF1C2330)
-val Slate800 = Color(0xFF222B3B)
-val Slate700 = Color(0xFF2E3A4F)
-
-val Alert80 = Color(0xFFFFB4AB)
-val Alert40 = Color(0xFFB3261E)
-val Warn80 = Color(0xFFFFD9A0)
-
-val OnDark = Color(0xFFE6EAF2)
-val OnDarkMuted = Color(0xFF9AA6B8)
+val AlertRed = Color(0xFFEF5350)
+val AlertRedDim = Color(0xFF3B1517)
+val WarnYellow = Color(0xFFFFCA28)
+val SuccessGreen = Color(0xFF66BB6A)
+val SuccessGreenDim = Color(0xFF1B3D1E)

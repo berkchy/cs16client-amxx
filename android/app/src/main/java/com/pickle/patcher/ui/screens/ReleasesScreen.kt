@@ -1,16 +1,32 @@
 package com.pickle.patcher.ui.screens
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.FolderSpecial
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -18,8 +34,14 @@ import androidx.compose.ui.unit.dp
 import com.pickle.patcher.patcher.AddonsState
 import com.pickle.patcher.patcher.BundleState
 import com.pickle.patcher.patcher.PatcherViewModel
-import com.pickle.patcher.ui.theme.Mint80
-import com.pickle.patcher.ui.theme.OnDarkMuted
+import com.pickle.patcher.ui.theme.Accent
+import com.pickle.patcher.ui.theme.AlertRed
+import com.pickle.patcher.ui.theme.Gray40
+import com.pickle.patcher.ui.theme.Gray70
+import com.pickle.patcher.ui.theme.Gray80
+import com.pickle.patcher.ui.theme.Gray90
+import com.pickle.patcher.ui.theme.SuccessGreen
+import com.pickle.patcher.ui.theme.White
 import java.io.File
 
 @Composable
@@ -30,205 +52,146 @@ fun ReleasesScreen(vm: PatcherViewModel) {
     val addons by vm.addons.collectAsState()
 
     Column(
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scroll)
-            .padding(20.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Text("Downloads", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
-            "Install the latest addons (plugins, modules, configs) into your cstrike " +
-                "folder, or manage the mod bundle used while patching.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = OnDarkMuted,
+            "Install addons or manage the mod bundle.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Gray40,
         )
 
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(20.dp))
 
-        SectionTitle("Addons")
-        Spacer(Modifier.height(10.dp))
-        ElevatedCard(shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(18.dp)) {
-                Text(
-                    "Downloads only the addons package — smaller and quicker than the " +
-                        "full bundle. Extracted into /storage/emulated/0/xash/cstrike.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = OnDarkMuted,
-                )
-                Spacer(Modifier.height(12.dp))
-                when (val a = addons) {
-                    is AddonsState.Downloading -> {
-                        LinearProgressIndicator(
-                            progress = { a.percent },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            a.step,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = OnDarkMuted,
-                        )
-                    }
-                    is AddonsState.Done -> Text(
-                        a.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Mint80,
-                    )
-                    is AddonsState.Error -> Text(
-                        a.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    is AddonsState.None -> Text(
-                        "Not downloaded yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OnDarkMuted,
-                    )
+        SectionHeader("ADDONS")
+        AppCard {
+            Text(
+                "Plugins, modules, and configs for cstrike/.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Gray40,
+            )
+            Spacer(Modifier.height(10.dp))
+
+            when (val a = addons) {
+                is AddonsState.Downloading -> {
+                    AppProgressBar(a.percent)
+                    Spacer(Modifier.height(4.dp))
+                    Text(a.step, style = MaterialTheme.typography.bodySmall, color = Gray40)
                 }
-                Spacer(Modifier.height(12.dp))
-                Button(
-                    onClick = { vm.fetchAndInstallAddons() },
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Icon(Icons.Filled.CloudDownload, contentDescription = null)
+                is AddonsState.Done -> StatusRow(SuccessGreen, a.message)
+                is AddonsState.Error -> StatusRow(AlertRed, a.message)
+                is AddonsState.None -> StatusRow(Gray40, "Not downloaded yet.")
+            }
+
+            Spacer(Modifier.height(10.dp))
+            PrimaryButton(
+                text = "Download & Install",
+                onClick = { vm.fetchAndInstallAddons() },
+                icon = { Icon(Icons.Filled.CloudDownload, null, modifier = Modifier.size(18.dp)) },
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        SectionHeader("MOD BUNDLE")
+        AppCard {
+            note?.let {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.CloudDownload, null, tint = Accent, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Download & Install Addons")
+                    Text(it, style = MaterialTheme.typography.titleSmall, maxLines = 2)
                 }
+                Spacer(Modifier.height(8.dp))
+            }
+
+            when (val b = bundle) {
+                is BundleState.Downloading -> {
+                    Text("Downloading…", style = MaterialTheme.typography.bodySmall, color = Gray40)
+                }
+                is BundleState.DownloadError -> StatusRow(AlertRed, b.message)
+                is BundleState.Ready -> StatusRow(SuccessGreen, "${b.bundleName}  ·  v${b.version}")
+                is BundleState.None -> StatusRow(Gray40, "Not downloaded yet.")
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PrimaryButton(
+                    text = "Download",
+                    onClick = { vm.fetchAndDownloadBundle() },
+                    icon = { Icon(Icons.Filled.Refresh, null, modifier = Modifier.size(18.dp)) },
+                    modifier = Modifier.weight(1f),
+                )
+                SecondaryButton(
+                    text = "Embedded",
+                    onClick = { vm.useEmbeddedBundle() },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            if (vm.hasCachedBundle) {
+                Spacer(Modifier.height(6.dp))
+                SecondaryButton(
+                    text = "Load cached",
+                    onClick = { vm.useCachedBundle() },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(16.dp))
 
-        SectionTitle("Latest release (mod bundle)")
-        Spacer(Modifier.height(10.dp))
-        ElevatedCard(shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.padding(18.dp)) {
-                note?.let {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.CloudDownload, contentDescription = null, tint = Mint80)
-                        Spacer(Modifier.width(8.dp))
-                        Text("$it", style = MaterialTheme.typography.titleMedium, maxLines = 2)
-                    }
-                    Spacer(Modifier.height(6.dp))
-                }
-                when (val b = bundle) {
-                    is BundleState.Downloading -> Text(
-                        "Downloading…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OnDarkMuted,
-                    )
-                    is BundleState.DownloadError -> Text(
-                        b.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    is BundleState.Ready -> Text(
-                        "Ready: ${b.bundleName} · version ${b.version}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Mint80,
-                    )
-                    is BundleState.None -> Text(
-                        "Not downloaded yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OnDarkMuted,
-                    )
-                }
-                Spacer(Modifier.height(14.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = { vm.fetchAndDownloadBundle() },
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(Icons.Filled.Refresh, contentDescription = null)
-                        Spacer(Modifier.width(6.dp))
-                        Text("Download / Update")
-                    }
-                    OutlinedButton(
-                        onClick = { vm.useEmbeddedBundle() },
-                        shape = RoundedCornerShape(14.dp),
-                    ) { Text("Embedded") }
-                }
-                if (vm.hasCachedBundle) {
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { vm.useCachedBundle() },
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Load cached bundle") }
-                } else {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "No cached bundle — one is created on first download.",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = OnDarkMuted,
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(22.dp))
-
-        SectionTitle("Game folders")
-        Spacer(Modifier.height(10.dp))
-        GameFolderCard()
+        SectionHeader("GAME FOLDERS")
+        GameFoldersCard()
     }
 }
 
 @Composable
-private fun GameFolderCard() {
-    val context = LocalContext.current
-    val gamePaths = listOf(
-        "Core files" to listOf(
-            File("/storage/emulated/0/xash/cstrike/addons/amxmodx/bin/"),
-            File("/storage/emulated/0/xash/cstrike/addons/amxmodx/modules/"),
-        ),
-        "Plugins folder" to listOf(
-            File("/storage/emulated/0/xash/cstrike/addons/amxmodx/plugins/"),
-        ),
-        "Game data" to listOf(
-            File("/storage/emulated/0/xash/cstrike/"),
-        ),
+private fun StatusRow(tint: androidx.compose.ui.graphics.Color, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            if (tint == SuccessGreen) Icons.Filled.CheckCircle else Icons.Filled.Error,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = tint)
+    }
+}
+
+@Composable
+private fun GameFoldersCard() {
+    val folders = listOf(
+        "addons/amxmodx/bin/" to "Core binaries",
+        "addons/amxmodx/modules/" to "Module .so files",
+        "addons/amxmodx/plugins/" to "Compiled plugins",
+        "addons/amxmodx/configs/" to "Configuration files",
+        "addons/amxmodx/includes/" to "Pawn headers",
     )
 
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            gamePaths.forEach { (label, dirs) ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        Icons.Filled.FolderSpecial,
-                        contentDescription = null,
-                        tint = Mint80,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(label, style = MaterialTheme.typography.titleSmall)
-                        dirs.forEach { d ->
-                            Text(
-                                if (d.exists()) "${d.path} ✓" else "${d.path} (missing)",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (d.exists()) Mint80 else OnDarkMuted,
-                            )
-                        }
-                    }
+    AppCard {
+        folders.forEach { (path, desc) ->
+            val dir = File("/storage/emulated/0/xash/cstrike/$path")
+            val exists = dir.exists()
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Filled.FolderSpecial, null,
+                    tint = if (exists) SuccessGreen else Gray70,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(path, style = MaterialTheme.typography.labelSmall, color = White)
+                    Text(desc, style = MaterialTheme.typography.labelSmall, color = Gray40)
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "After the patched APK is installed, copy plugins and configs into these folders.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = OnDarkMuted,
-            )
         }
     }
 }
