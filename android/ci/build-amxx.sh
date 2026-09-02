@@ -202,6 +202,23 @@ print('   CDetour patched for ARM64')
   fi
 fi
 
+# ----------------------------------------------------------------- toolchain
+HOST=$(uname -s | tr 'A-Z' 'a-z')
+if [ "$HOST" = darwin ]; then HOST=mac; fi
+
+TC=$NDK/toolchains/llvm/prebuilt/$HOST-x86_64/bin
+TARGET=aarch64-linux-android24
+CC=$TC/$TARGET-clang
+CXX=$TC/$TARGET-clang++
+HOSTCC=${HOSTCC:-gcc}
+HOSTCXX=${HOSTCXX:-g++}
+SYSROOT_LIB=$NDK/toolchains/llvm/prebuilt/$HOST-x86_64/sysroot/usr/lib/aarch64-linux-android
+
+AMXX=$SRC/amxmodx
+HLSDK=$REPO_ROOT/android/hlsdk
+METAMOD=$SRC/metamod-p/metamod
+MMHLSDK=$SRC/metamod-p/hlsdk
+
 # Hamsandwich Trampolines.h: reinterpret_cast<int>(extraptr) truncates
 # a 64-bit pointer on ARM64. Fix: use intptr_t.
 if [ -f "$AMXX/modules/hamsandwich/Trampolines.h" ]; then
@@ -220,23 +237,6 @@ print('   Trampolines.h patched for ARM64')
     echo "   Trampolines.h already patched"
   fi
 fi
-
-# ----------------------------------------------------------------- toolchain
-HOST=$(uname -s | tr 'A-Z' 'a-z')
-if [ "$HOST" = darwin ]; then HOST=mac; fi
-
-TC=$NDK/toolchains/llvm/prebuilt/$HOST-x86_64/bin
-TARGET=aarch64-linux-android24
-CC=$TC/$TARGET-clang
-CXX=$TC/$TARGET-clang++
-HOSTCC=${HOSTCC:-gcc}
-HOSTCXX=${HOSTCXX:-g++}
-SYSROOT_LIB=$NDK/toolchains/llvm/prebuilt/$HOST-x86_64/sysroot/usr/lib/aarch64-linux-android
-
-AMXX=$SRC/amxmodx
-HLSDK=$REPO_ROOT/android/hlsdk
-METAMOD=$SRC/metamod-p/metamod
-MMHLSDK=$SRC/metamod-p/hlsdk
 
 # ---------------------------------------------------------------- flags
 DEFS=(
