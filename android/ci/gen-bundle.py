@@ -123,7 +123,7 @@ def main():
                 rel = os.path.relpath(full, addons_dir).replace(os.sep, "/")
                 entries.append({
                     "source": rel,
-                    "target": f"assets/addons/{rel}",
+                    "target": f"addons/{rel}",
                     "method": "DEFLATED",
                     "required": False,
                     "description": "addon file",

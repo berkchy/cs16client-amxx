@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
@@ -436,7 +437,10 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                 if (includeDir.isDirectory) {
                     cmd.add("-i${includeDir.absolutePath}")
                 }
-                cmd.add("-o${File(scriptDir, f.nameWithoutExtension).absolutePath}")
+                val compiledDir = File(scriptDir, "compiled")
+                compiledDir.mkdirs()
+                val outPath = File(compiledDir, f.nameWithoutExtension + ".amxx").absolutePath
+                cmd.add("-o$outPath")
                 cmd.add(source.path)
                 _compile.value = CompileState.Compiling(source.name)
                 // Ensure compiler dir is in LD_LIBRARY_PATH so driver finds amxxpc32.so
@@ -460,9 +464,9 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                     append(output.trim())
                     if (output.trim().isNotEmpty()) append("\n")
                     append("exit=$exit\n")
-                    val out = File(scriptDir, f.nameWithoutExtension + ".amxx")
+                    val out = File(compiledDir, f.nameWithoutExtension + ".amxx")
                     if (exit == 0 && out.exists()) {
-                        append("OK: ${out.name} (${out.length()} bytes)")
+                        append("OK: compiled/${out.name} (${out.length()} bytes)")
                     } else {
                         append("Compile failed.")
                     }
@@ -550,5 +554,35 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         const val CACHE_TAG = "v2"
+        const val GAME_DIR = "/storage/emulated/0/xash/cstrike"
+    }
+
+    /**
+     * Auto-install addons from the embedded bundle into the game directory.
+     * Checks storage permission first; if not granted, silently skips.
+     * Only writes files that are missing or have different sizes (no overwrite of user edits).
+     */
+    fun autoInstallAddons() {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+                return@launch
+            }
+            val gameDir = File(GAME_DIR)
+            if (!gameDir.exists()) return@launch
+
+            val bundle = bundleProvider.loadEmbedded() ?: return@launch
+            var installed = 0
+            for (entry in bundle.manifest.entries) {
+                val target = File(gameDir, entry.target)
+                if (target.exists()) continue
+                val content = bundle.resolveEntry(entry) ?: continue
+                target.parentFile?.mkdirs()
+                target.writeBytes(content)
+                installed++
+            }
+            if (installed > 0) {
+                _addons.value = AddonsState.Done("Auto-installed $installed addon files")
+            }
+        }
     }
 }
