@@ -482,6 +482,12 @@ build_module cstrike cstrike/cstrike "" "" \
 build_module csx cstrike/csx "" "" \
   "$SDK/amxxmodule.cpp" "CRank.cpp" "CMisc.cpp" "meta_api.cpp" "rank.cpp" "usermsg.cpp"
 
+build_module hamsandwich hamsandwich "" "-DHAVE_STDINT_H" \
+  "$SDK/amxxmodule.cpp" "$P/memtools/MemoryUtils.cpp" \
+  "amxx_api.cpp" "config_parser.cpp" "hook_callbacks.cpp" "hook_native.cpp" \
+  "srvcmd.cpp" "call_funcs.cpp" "hook_create.cpp" "DataHandler.cpp" \
+  "pdata.cpp" "hook_specialbot.cpp"
+
 # link regex against freshly built pcre
 "$CXX" -fPIC -O2 -shared -nostdlib++ -o "$OUT/lib/arm64-v8a/libregex_amxx_amd64.so" \
   "$TMP"/mod-regex/*.o "$cmd_shim" "$PCRE_A" \
