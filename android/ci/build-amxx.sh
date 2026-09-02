@@ -707,8 +707,8 @@ if [ -f "$CLIENT_SRC/.gitmodules" ]; then
     git -C "$CLIENT_SRC" submodule update --init --recursive 2>&1 | head -20 || true
   else
     echo "   vcs16 .git missing, fetching submodules manually"
-    for mod in "3rdparty/mainui_cpp:https://github.com/Velaron/mainui_cpp" "3rdparty/miniutl:https://github.com/FWGS/MiniUTL"; do
-      path="${mod%%:*}"; url="${mod##*:}"
+    for mod in "3rdparty/mainui_cpp|https://github.com/Velaron/mainui_cpp" "3rdparty/miniutl|https://github.com/FWGS/MiniUTL"; do
+      path="${mod%%|*}"; url="${mod##*|}"
       if [ ! -f "$CLIENT_SRC/$path/CMakeLists.txt" ] && [ ! -f "$CLIENT_SRC/$path/README.md" ]; then
         rm -rf "$CLIENT_SRC/$path"
         git clone --depth 1 "$url" "$CLIENT_SRC/$path" 2>&1 | tail -2 || true
