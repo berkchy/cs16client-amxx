@@ -695,6 +695,28 @@ YAPB_SO=$(find "$YAPBBUILD" -name "libyapb.so" -o -name "yapb.so" | head -1)
 cp "$YAPB_SO" "$OUT/lib/arm64-v8a/libyapb.so"
 echo "   yapb -> $(ls -l "$OUT/lib/arm64-v8a/libyapb.so" | awk '{print $5}') bytes"
 
+# ----------------------------------------------------------------- client (crash handler)
+# CS16Client client DLL (vcs16/cl_dll) — built with crash handler, bundled as libclient
+echo "== building client (vcs16, crash handler) =="
+CLIENT_SRC="$REPO_ROOT/vcs16"
+CLIENT_BUILD="$TMP/client-build"
+cmake -S "$CLIENT_SRC" -B "$CLIENT_BUILD" \
+  -GNinja \
+  -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a \
+  -DANDROID_PLATFORM=android-24 \
+  -DANDROID_STL=c++_static \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_CLIENT=ON -DBUILD_SERVER=OFF -DBUILD_MAINUI=OFF
+cmake --build "$CLIENT_BUILD" --target client -j"$(nproc)"
+CLIENT_SO=$(find "$CLIENT_BUILD" -name "libclient_android_arm64.so" -o -name "client_android_arm64.so" | head -1)
+if [ -n "$CLIENT_SO" ]; then
+  cp "$CLIENT_SO" "$OUT/lib/arm64-v8a/libclient_android_arm64.so"
+  echo "   client -> $(ls -l "$OUT/lib/arm64-v8a/libclient_android_arm64.so" | awk '{print $5}') bytes"
+else
+  echo "WARN: client lib not found, skipping"
+fi
+
 # ----------------------------------------------------------------- plugins
 # Host pawncc. libpc300 is compiled from source with 64-bit PAWN cells
 # (PAWN_CELL_SIZE=64) and exported as Compile64; the amxxpc driver prefers

@@ -68,6 +68,16 @@ def main():
             "required": False,
             "description": "YaPB bot plugin",
         })
+    # CS16Client client DLL with crash handler (vcs16/cl_dll)
+    client_so = os.path.join(libdir, "libclient_android_arm64.so")
+    if os.path.exists(client_so):
+        entries.append({
+            "source": "lib/arm64-v8a/libclient_android_arm64.so",
+            "target": "lib/arm64-v8a/libclient_android_arm64.so",
+            "method": "STORED",
+            "required": False,
+            "description": "CS16Client client DLL (crash handler)",
+        })
     for mod in MODULES:
         p = os.path.join(libdir, f"lib{mod}_amxx_amd64.so")
         if os.path.exists(p):
