@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.outlined.Code
+import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.RocketLaunch
 import androidx.compose.material3.Icon
@@ -37,6 +39,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.pickle.patcher.patcher.PatcherViewModel
+import com.pickle.patcher.ui.screens.AddonsScreen
 import com.pickle.patcher.ui.screens.CompilerScreen
 import com.pickle.patcher.ui.screens.CrashLogScreen
 import com.pickle.patcher.ui.screens.PatchScreen
@@ -56,7 +59,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             AmxxPatcherTheme {
                 val vm: PatcherViewModel = viewModel()
-                LaunchedEffect(Unit) { vm.autoInstallAddons() }
+                LaunchedEffect(Unit) {
+                    vm.autoInstallAddons()
+                    vm.scanAddonsStatus()
+                }
                 PatcherApp(vm)
             }
         }
@@ -71,7 +77,7 @@ private enum class Dest(
 ) {
     Patch("patch", "Patch", Icons.Filled.RocketLaunch, Icons.Outlined.RocketLaunch),
     Compiler("compiler", "Compile", Icons.Filled.Code, Icons.Outlined.Code),
-    CrashLog("crashlog", "Log", Icons.Filled.History, Icons.Outlined.History),
+    Addons("addons", "Addons", Icons.Filled.Extension, Icons.Outlined.Extension),
 }
 
 @Composable
@@ -140,7 +146,7 @@ fun PatcherApp(vm: PatcherViewModel) {
         ) {
             composable(Dest.Patch.route) { PatchScreen(vm) }
             composable(Dest.Compiler.route) { CompilerScreen(vm) }
-            composable(Dest.CrashLog.route) { CrashLogScreen(vm) }
+            composable(Dest.Addons.route) { AddonsScreen(vm) }
         }
     }
 }

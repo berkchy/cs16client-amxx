@@ -249,11 +249,43 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
                     _addons.value = AddonsState.Downloading(p, "Downloading addons…")
                 }
                 _addons.value = AddonsState.Downloading(1f, "Extracting into cstrike…")
-                val target = File("/storage/emulated/0/xash/cstrike")
+                val target = File(_installPath.value)
                 val count = unzipInto(zip, target)
                 _addons.value = AddonsState.Done(
                     "Installed ${count} addons files into ${target.path}"
                 )
+                scanAddonsStatus()
+            } catch (t: Throwable) {
+                _addons.value = AddonsState.Error(t.message ?: "Unknown error")
+            }
+        }
+    }
+
+    fun installAddonsFromBundle() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _addons.value = AddonsState.Downloading(0f, "Preparing addons…")
+            try {
+                val target = File(_installPath.value)
+                val bundle = loadedBundle ?: bundleProvider.loadEmbedded() ?: bundleProvider.loadCachedBundle()
+                    ?: throw IOException("No bundle available — load or download a bundle first.")
+                var installed = 0
+                var skipped = 0
+                for (entry in bundle.manifest.entries) {
+                    if (!entry.target.startsWith("addons/")) continue
+                    val outFile = File(target, entry.target)
+                    if (outFile.exists()) {
+                        skipped++
+                        continue
+                    }
+                    val content = bundle.resolveEntry(entry) ?: continue
+                    outFile.parentFile?.mkdirs()
+                    outFile.writeBytes(content)
+                    installed++
+                }
+                _addons.value = AddonsState.Done(
+                    "Installed: $installed  ·  Already present: $skipped"
+                )
+                scanAddonsStatus()
             } catch (t: Throwable) {
                 _addons.value = AddonsState.Error(t.message ?: "Unknown error")
             }
@@ -266,11 +298,8 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
             zf.entries().asSequence().forEach { entry ->
                 if (entry.isDirectory) return@forEach
                 val name = entry.name
-                // amxx-addons.zip is built with an `addons/...` prefix.
-                val rel = if (name.startsWith("addons/")) name.drop(7) else name
-                if (rel.isBlank()) return@forEach
-                val out = File(target, rel)
-                // guard against path traversal
+                if (name.isBlank()) return@forEach
+                val out = File(target, name)
                 if (!out.canonicalPath.startsWith(target.canonicalPath + File.separator)) {
                     throw IOException("Unsafe path in addons zip: $name")
                 }
@@ -573,6 +602,7 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
             val bundle = bundleProvider.loadEmbedded() ?: return@launch
             var installed = 0
             for (entry in bundle.manifest.entries) {
+                if (!entry.target.startsWith("addons/")) continue
                 val target = File(gameDir, entry.target)
                 if (target.exists()) continue
                 val content = bundle.resolveEntry(entry) ?: continue
@@ -583,6 +613,47 @@ class PatcherViewModel(app: Application) : AndroidViewModel(app) {
             if (installed > 0) {
                 _addons.value = AddonsState.Done("Auto-installed $installed addon files")
             }
+            scanAddonsStatus()
+        }
+    }
+
+    data class AddonFileStatus(
+        val path: String,
+        val expected: Boolean,
+        val installed: Boolean,
+    )
+
+    private val _addonFiles = MutableStateFlow<List<AddonFileStatus>>(emptyList())
+    val addonFiles: StateFlow<List<AddonFileStatus>> = _addonFiles.asStateFlow()
+
+    private val _installPath = MutableStateFlow(GAME_DIR)
+    val installPath: StateFlow<String> = _installPath.asStateFlow()
+
+    fun setInstallPath(path: String) {
+        _installPath.value = path
+        scanAddonsStatus()
+    }
+
+    fun scanAddonsStatus() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val gameDir = File(_installPath.value)
+            val addonsDir = File(gameDir, "addons")
+
+            val bundle = loadedBundle ?: bundleProvider.loadEmbedded() ?: bundleProvider.loadCachedBundle()
+            val expected = mutableSetOf<String>()
+            if (bundle != null) {
+                for (entry in bundle.manifest.entries) {
+                    if (!entry.target.startsWith("addons/")) continue
+                    expected.add(entry.target)
+                }
+            }
+
+            val result = mutableListOf<AddonFileStatus>()
+            for (target in expected.sorted()) {
+                val file = File(gameDir, target)
+                result.add(AddonFileStatus(target, expected = true, installed = file.exists()))
+            }
+            _addonFiles.value = result
         }
     }
 }
