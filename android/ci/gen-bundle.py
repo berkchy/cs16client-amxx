@@ -18,7 +18,7 @@ VERSION = os.environ.get("RELEASE_VERSION", "1.10.0-dev")
 
 MODULES = [
     "cstrike", "csx", "engine", "fakemeta", "fun", "geoip",
-    "json", "nvault", "reapi", "regex", "sockets", "sqlite",
+    "hamsandwich", "json", "nvault", "reapi", "regex", "sockets", "sqlite",
 ]
 
 
@@ -123,7 +123,7 @@ def main():
                 rel = os.path.relpath(full, addons_dir).replace(os.sep, "/")
                 entries.append({
                     "source": rel,
-                    "target": f"addons/{rel}",
+                    "target": f"assets/addons/{rel}",
                     "method": "DEFLATED",
                     "required": False,
                     "description": "addon file",

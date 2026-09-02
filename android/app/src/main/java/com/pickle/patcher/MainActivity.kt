@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.RocketLaunch
 import androidx.compose.material3.Icon
@@ -41,7 +39,6 @@ import com.pickle.patcher.patcher.PatcherViewModel
 import com.pickle.patcher.ui.screens.CompilerScreen
 import com.pickle.patcher.ui.screens.CrashLogScreen
 import com.pickle.patcher.ui.screens.PatchScreen
-import com.pickle.patcher.ui.screens.ReleasesScreen
 import com.pickle.patcher.ui.theme.AmxxPatcherTheme
 import com.pickle.patcher.ui.theme.Black
 import com.pickle.patcher.ui.theme.Gray40
@@ -72,7 +69,6 @@ private enum class Dest(
 ) {
     Patch("patch", "Patch", Icons.Filled.RocketLaunch, Icons.Outlined.RocketLaunch),
     Compiler("compiler", "Compile", Icons.Filled.Code, Icons.Outlined.Code),
-    Downloads("downloads", "Downloads", Icons.Filled.Download, Icons.Outlined.Download),
     CrashLog("crashlog", "Log", Icons.Filled.History, Icons.Outlined.History),
 }
 
@@ -142,7 +138,6 @@ fun PatcherApp(vm: PatcherViewModel) {
         ) {
             composable(Dest.Patch.route) { PatchScreen(vm) }
             composable(Dest.Compiler.route) { CompilerScreen(vm) }
-            composable(Dest.Downloads.route) { ReleasesScreen(vm) }
             composable(Dest.CrashLog.route) { CrashLogScreen(vm) }
         }
     }
