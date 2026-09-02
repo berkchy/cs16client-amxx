@@ -202,6 +202,25 @@ print('   CDetour patched for ARM64')
   fi
 fi
 
+# Hamsandwich Trampolines.h: reinterpret_cast<int>(extraptr) truncates
+# a 64-bit pointer on ARM64. Fix: use intptr_t.
+if [ -f "$AMXX/modules/hamsandwich/Trampolines.h" ]; then
+  TH="$AMXX/modules/hamsandwich/Trampolines.h"
+  if ! grep -q 'intptr_t' "$TH"; then
+    echo "   patching Trampolines.h for 64-bit pointer cast"
+    python3 -c "
+import sys
+p = sys.argv[1]
+d = open(p).read()
+d = d.replace('reinterpret_cast<int>(extraptr)', 'reinterpret_cast<intptr_t>(extraptr)')
+open(p,'w').write(d)
+print('   Trampolines.h patched for ARM64')
+" "$TH"
+  else
+    echo "   Trampolines.h already patched"
+  fi
+fi
+
 # ----------------------------------------------------------------- toolchain
 HOST=$(uname -s | tr 'A-Z' 'a-z')
 if [ "$HOST" = darwin ]; then HOST=mac; fi
