@@ -11,6 +11,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,17 +27,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.border
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -51,6 +52,7 @@ import com.pickle.patcher.ui.theme.Gray40
 import com.pickle.patcher.ui.theme.Gray60
 import com.pickle.patcher.ui.theme.Gray70
 import com.pickle.patcher.ui.theme.Gray80
+import com.pickle.patcher.ui.theme.Gray85
 import com.pickle.patcher.ui.theme.Gray90
 import com.pickle.patcher.ui.theme.SuccessGreen
 import com.pickle.patcher.ui.theme.White
@@ -126,11 +128,11 @@ fun SecondaryButton(
         enabled = enabled,
         modifier = modifier.height(44.dp),
         shape = ButtonShape,
-        colors = OutlinedButtonDefaults.outlinedButtonColors(
+        colors = ButtonDefaults.outlinedButtonColors(
             contentColor = Gray40,
             disabledContentColor = Gray60,
         ),
-        border = OutlinedButtonDefaults.outlinedButtonBorder(enabled = enabled, borderColor = Gray70),
+        border = BorderStroke(1.dp, if (enabled) Gray70 else Gray60),
     ) {
         icon?.invoke()
         if (icon != null) Spacer(Modifier.width(6.dp))
@@ -149,7 +151,7 @@ fun GhostButton(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier,
-        colors = TextButtonDefaults.textButtonColors(contentColor = Accent),
+        colors = ButtonDefaults.textButtonColors(contentColor = Accent),
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge)
     }

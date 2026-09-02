@@ -45,6 +45,7 @@ import com.pickle.patcher.patcher.BundleState
 import com.pickle.patcher.patcher.PatchUiState
 import com.pickle.patcher.patcher.PatcherViewModel
 import com.pickle.patcher.ui.theme.Accent
+import com.pickle.patcher.ui.theme.AlertRed
 import com.pickle.patcher.ui.theme.Gray40
 import com.pickle.patcher.ui.theme.Gray70
 import com.pickle.patcher.ui.theme.Gray80
@@ -148,7 +149,7 @@ private fun SourceCard(vm: PatcherViewModel) {
                         color = Gray40,
                     )
                 }
-                GhostButton("Change") { picker.launch(arrayOf("application/vnd.android.package-archive")) }
+                GhostButton("Change", onClick = { picker.launch(arrayOf("application/vnd.android.package-archive")) })
             }
         }
     }
@@ -328,5 +329,3 @@ private fun PatchResult(report: ApkPatcher.PatchReport, onInstall: () -> Unit) {
         }
     }
 }
-
-private typealias AlertRed = com.pickle.patcher.ui.theme.AlertRed
