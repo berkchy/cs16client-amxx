@@ -2,6 +2,7 @@ package com.pickle.patcher.ui.screens
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -148,5 +149,3 @@ private fun shareCrash(context: Context, content: String) {
     }
     context.startActivity(Intent.createChooser(intent, "Share crash log"))
 }
-
-private typealias Arrangement = androidx.compose.foundation.layout.Arrangement
